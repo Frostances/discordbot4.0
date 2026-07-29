@@ -1,0 +1,168 @@
+{
+  "temproles": [],
+  "reminders": [],
+  "_initialized": true,
+  "settings": {
+    "prefix": ","
+  },
+  "modules": {},
+  "staffRoles": [],
+  "cases": [
+    {
+      "id": 1,
+      "type": "lock",
+      "targetId": "1528875294419583076",
+      "executorId": "1410668779347771402",
+      "reason": "Channel locked",
+      "timestamp": 1784589645040,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 2,
+      "type": "lock",
+      "targetId": "1528875294419583077",
+      "executorId": "1410668779347771402",
+      "reason": "Channel locked",
+      "timestamp": 1784589938869,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    }
+  ],
+  "notes": {},
+  "voiceMaster": {
+    "categoryId": "1531788362183082076",
+    "interfaceChannelId": "1531788363580051587",
+    "joinChannelId": "1531788364628627616",
+    "interfaceMessageId": "1531791959201546445"
+  },
+  "welcomeConfig": {
+    "message": "{embed}$v{message: {user.mention}}$v{author: welcome, {user} ! && emojilinkhere}$v{description: <:invisible:1531760713453015081><:white_star2:1531761346947973430> follow our [law](https://discord.com/channels/1528875292016251040/1528875293895299264)\n<:invisible:1531760713453015081><:invisible:1531760713453015081><:white_star2:1531761346947973430> earn [roles](https://discord.com/channels/1528875292016251040/1529515361295401090)\n<:invisible:1531760713453015081><:invisible:1531760713453015081><:invisible:1531760713453015081><:white_star2:1531761346947973430>boost 4 [perks](https://discord.com/channels/1528875292016251040/1528875293895299269) }$v{thumbnail: {user.avatar}}$v{button:https://discord.com/channels/1528875292016251040/1528898738133926060 && create a call && <a:util_whitehearts:1531761303558033449> && enabled}$v{button: && {guild.count} && <:w_members:1531761274583515176> && enabled}"
+  },
+  "levelsConfig": {
+    "xpRate": 5
+  },
+  "boostConfig": {
+    "message": "{embed}$v{message: {user.mention} *!!*}$v{color: #010101}$v{title: ty for boosting *!* <:boost:1531260159387631777> }$v{description: ** you have unlocked...** \n> VC server mute\n> pic & snipe perms\n> 2x Casino Money\n> __custom booster role__ \n**use `,help br` for custom role**\n-# perks removed after unboosting\n}$v{thumbnail: {user.avatar}}",
+    "enabled": true,
+    "channelId": "1529164919604514826"
+  },
+  "boosterRoleConfig": {
+    "enabled": true,
+    "shareMax": 0,
+    "baseRoleId": "1531775534529253647",
+    "filterWords": [
+      "own"
+    ]
+  },
+  "boosterRoles": {
+    "1410668779347771402": {
+      "roleId": "1531775729044426844",
+      "sharedWith": [
+        "1278713831345881170"
+      ]
+    }
+  },
+  "users": {
+    "1410668779347771402": {
+      "xp": 0,
+      "level": 0,
+      "balance": 0,
+      "bank": 0,
+      "warnings": [],
+      "inventory": [],
+      "lastDaily": null,
+      "lastWeekly": null,
+      "lastWork": null,
+      "lastCrime": null
+    }
+  },
+  "autoRoles": [
+    "1528875292100132957"
+  ],
+  "giveaways": {
+    "1531782978257027256": {
+      "channelId": "1528875294952521975",
+      "prize": "10$ Nitro",
+      "winnersCount": 2,
+      "hostId": "1278713831345881170",
+      "endAt": 1786485521030,
+      "entries": [
+        "1410668779347771402"
+      ],
+      "ended": false,
+      "winners": [],
+      "description": "DONT BE GAY",
+      "color": "#FF6B6B",
+      "imageUrl": null,
+      "thumbnailUrl": "https://cdn.discordapp.com/attachments/1528875294952521975/1531784380542881802/IMG_2880.jpg?ex=6a6a78df&is=6a69275f&hm=0ef972e459bd20256885c5d2b71452e4076c6bae9d622d1603a91ebb46dfb9f2&",
+      "requiredRoles": [],
+      "minLevel": null,
+      "maxLevel": null,
+      "minAge": null,
+      "minStay": null
+    },
+    "1531803504837136567": {
+      "channelId": "1528875294952521975",
+      "prize": "20$ nitro",
+      "winnersCount": 1,
+      "hostId": "1410668779347771402",
+      "endAt": 1785280855031,
+      "entries": [
+        "1410668779347771402"
+      ],
+      "ended": true,
+      "winners": [
+        "1410668779347771402"
+      ],
+      "description": null,
+      "color": "#FF6B6B",
+      "imageUrl": null,
+      "thumbnailUrl": null,
+      "requiredRoles": [],
+      "minLevel": null,
+      "maxLevel": null,
+      "minAge": null,
+      "minStay": null
+    }
+  },
+  "reactionRoles": {
+    "1531808873323954457": [
+      {
+        "emoji": "❤️",
+        "roleId": "1528875292100132956"
+      }
+    ]
+  },
+  "buttonRoles": {
+    "1531809469531553952": [
+      {
+        "roleId": "1528875292100132956",
+        "style": "green",
+        "emoji": "<:greens:1531294565116543158>",
+        "label": "Verify"
+      }
+    ]
+  },
+  "cmdRestrictions": {
+    "tictactoe": {
+      "roles": [
+        "1528875292100132962"
+      ]
+    }
+  }
+}

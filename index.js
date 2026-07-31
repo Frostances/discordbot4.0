@@ -86,6 +86,8 @@ const { handleVoiceTimeStats, handleMessageStats,
         trackMessage }                                   = require('./modules/stats');
 const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
 
+const { handleInvokeCommand } = require('./modules/invoke');
+
 // ══════════════════════════════════════════════════════════
 // FAKE PERMISSIONS SYSTEM
 // ══════════════════════════════════════════════════════════
@@ -891,6 +893,8 @@ const ALIASES = {
      // Fake Permissions
      fp: 'fakepermissions',
      fakeperms: 'fakepermissions',
+     // Invoke
+     inv: 'invoke',
 };
 
 // ══════════════════════════════════════════════════════════
@@ -936,6 +940,9 @@ client.on('messageCreate', async (message) => {
     if (isModuleEnabled(message.guild.id, 'automod'))  await runAutoMod(message).catch(() => {});
     if (isModuleEnabled(message.guild.id, 'streaks'))  await handleStreak(message).catch(() => {});
     if (isModuleEnabled(message.guild.id, 'levels'))   await handleXpGain(message).catch(() => {});
+    
+     // ── Invoke Messages ──
+     if (command === 'invoke') return handleInvokeCommand(message, args);
 
     // ── AFK system ──
     const db = getGuildDb(message.guild.id);

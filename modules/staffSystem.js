@@ -76,3 +76,44 @@ async function handleStaffCommand(message, args) {
 }
 
 module.exports = { handleStaffCommand };
+
+ // ── BIND STAFF (alias for staff add/remove, but with toggle behavior) ──
+ if (sub === 'bind') {
+     const bindSub = args[1]?.toLowerCase();
+
+     if (bindSub === 'staff') {
+         const role = message.mentions.roles.first();
+
+         // List current staff roles
+         if (!role || args[2]?.toLowerCase() === 'list') {
+             const staffRoles = db.get('staffRoles', []);
+             if (!staffRoles.length) {
+                 return message.reply({ embeds: [base(COLORS.warning).setTitle('📋 Staff Roles').setDescription('No staff roles set. Use `,bind staff @Role` to add one.')] });
+             }
+             const list = staffRoles.map(id => {
+                 const r = message.guild.roles.cache.get(id);
+                 return r ? `• <@&${id}> (${r.name})` : `• <@&${id}> (deleted)`;
+             }).join('\n');
+             return message.reply({ embeds: [base(COLORS.primary).setTitle('📋 Staff Roles').setDescription(list)] });
+         }
+
+         if (!role) return message.reply({ embeds: [mkError('Missing Role', 'Mention a role: `,bind staff @Role`')] });
+
+         const staffRoles = db.get('staffRoles', []);
+         const idx = staffRoles.indexOf(role.id);
+
+         if (idx !== -1) {
+             // Remove (toggle off)
+             staffRoles.splice(idx, 1);
+             db.set('staffRoles', staffRoles);
+             return message.reply({ embeds: [mkSuccess('Staff Role Removed', `<@&${role.id}> is no longer a staff role.`)] });
+         } else {
+             // Add
+             staffRoles.push(role.id);
+             db.set('staffRoles', staffRoles);
+             return message.reply({ embeds: [mkSuccess('Staff Role Added', `<@&${role.id}> is now a staff role.`)] });
+         }
+     }
+
+     return message.reply({ embeds: [mkInfo('Bind Commands', '`,bind staff @Role` — toggle staff role\n`,bind staff list` — view staff roles')] });
+ }

@@ -228,18 +228,8 @@ async function handleJail(ctx, args, client) {
   try {
     return sendInvokeReply(ctx, ctx.guild.id, 'jail', target, reason, durationStr, c.id);
   } catch {
-    const embed = base(COLORS.error)
-      .setTitle('🏛️ Member Jailed')
-      .setThumbnail(target.user.displayAvatarURL())
-      .addFields(
-        { name: '👤 User', value: `${target.user} (${target.id})`, inline: true },
-        { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
-        { name: '📝 Reason', value: reason },
-        { name: '⏱️ Duration', value: durationStr || 'Permanent', inline: true },
-        { name: '🏷️ Case', value: `#${c.id}`, inline: true },
-      );
-    await sendModLog(ctx.guild, embed);
-    return ctx.reply({ embeds: [embed] });
+    const timeText = durationStr ? ` for **${durationStr}**` : '';
+    return ctx.reply(`${target} is jailed${timeText}`);
   }
 }
 

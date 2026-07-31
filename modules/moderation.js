@@ -12,7 +12,7 @@ const {
   createCase, sendModLog, parseDuration, formatDuration,
   cmdCase, cmdReason, cmdProof,
   cmdHistory, cmdHistoryRemove, cmdHistoryRemoveAll,
-  cmdModStats, cmdWarnings,
+  cmdModStats, cmdWarnings, cmdClearWarn, cmdClearAllWarns, cmdClearAllServerWarns, cmdExpireWarn,
 } = require('./cases');
 const { chunk, sendPaginated } = require('../utils/paginator');
 
@@ -20,7 +20,8 @@ const { chunk, sendPaginated } = require('../utils/paginator');
 const { handlePurge } = require('./purge');
 const { handleJail, handleUnjail, handleJailList, handleJailSetup, applyJailPermsToNewChannel } = require('./jail');
 const { handleMute, handleUnmute, handleIMute, handleIUnmute,
-  handleRMute, handleRUnmute, handleSetupMute, handleSetupIMute, handleSetupRMute } = require('./mute');
+  handleRMute, handleRUnmute, handleSetupMute, handleSetupIMute, handleSetupRMute,
+  handleUnmuteAll, handleIUnmuteAll, handleRUnmuteAll } = require('./mute');
 const { handleRole, handleTempRole } = require('./roles');
 const { handleLock, handleUnlock, handleUnlockAll, handleLockdown, handleLockdownIgnore,
   handleHide, handleUnhide, handleTalk,
@@ -565,8 +566,16 @@ async function handleModerationCommand(ctx, command, args, client) {
     const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim();
     if (!reason) return ctx.reply({ content: '❌ Provide a reason: `.warn @user <reason>`', ephemeral: true });
 
-    const c = createCase(guild.id, { type: 'warn', targetId: target.id, executorId: authorId, reason });
-    const total = require('./cases').getAllCases(guild.id).filter(x => x.targetId === target.id && x.type === 'warn' && x.status !== 'pardoned').length;
+    // Check warn expiration setting
+    const warnExpires = db.get('warnExpires', 0);
+    const warnCaseData = { type: 'warn', targetId: target.id, executorId: authorId, reason };
+    if (warnExpires > 0) {
+      warnCaseData.expires = Date.now() + warnExpires;
+      warnCaseData.duration = formatDuration(warnExpires);
+    }
+
+    const c = createCase(guild.id, warnCaseData);
+    const total = require('./cases').getActiveWarnings(guild.id, target.id).length;
 
     // DM the user
     try {
@@ -593,7 +602,11 @@ async function handleModerationCommand(ctx, command, args, client) {
         { name: '⚠️ Total Warnings', value: total.toString(), inline: true },
       );
     await sendModLog(guild, logEmbed);
-    return sendInvokeReply(ctx, guild.id, 'warn', target, reason, null, c.id);
+
+    // Clean short embed response
+    const warnEmbed = base(COLORS.warning)
+      .setDescription(`⚠️ ${target} has been warned for **${reason}**, this is their **${total}${total === 1 ? 'st' : total === 2 ? 'nd' : total === 3 ? 'rd' : 'th'}** warning!`);
+    return ctx.reply({ embeds: [warnEmbed] });
   }
 
   // ════════════════════════════════════════════
@@ -634,11 +647,20 @@ async function handleModerationCommand(ctx, command, args, client) {
   // MUTE SYSTEM
   // ════════════════════════════════════════════
   if (command === 'mute') return handleMute(ctx, args, client);
-  if (command === 'unmute') return handleUnmute(ctx, args, client);
+  if (command === 'unmute') {
+    if (args[0]?.toLowerCase() === 'all') return handleUnmuteAll(ctx);
+    return handleUnmute(ctx, args, client);
+  }
   if (command === 'imute') return handleIMute(ctx, args);
-  if (command === 'iunmute') return handleIUnmute(ctx, args);
+  if (command === 'iunmute') {
+    if (args[0]?.toLowerCase() === 'all') return handleIUnmuteAll(ctx);
+    return handleIUnmute(ctx, args);
+  }
   if (command === 'rmute') return handleRMute(ctx, args);
-  if (command === 'runmute') return handleRUnmute(ctx, args);
+  if (command === 'runmute') {
+    if (args[0]?.toLowerCase() === 'all') return handleRUnmuteAll(ctx);
+    return handleRUnmute(ctx, args);
+  }
   if (command === 'setupmute') return handleSetupMute(ctx, args);
   if (command === 'setupimute') return handleSetupIMute(ctx, args);
   if (command === 'setuprmute') return handleSetupRMute(ctx, args);
@@ -693,6 +715,10 @@ async function handleModerationCommand(ctx, command, args, client) {
   }
   if (command === 'modstats') return cmdModStats(ctx, args, client);
   if (command === 'warnings') return cmdWarnings(ctx, args, client);
+  if (command === 'clearwarn') return cmdClearWarn(ctx, args, client);
+  if (command === 'clearallwarns') return cmdClearAllWarns(ctx, args, client);
+  if (command === 'clearallserverwarns') return cmdClearAllServerWarns(ctx, args, client);
+  if (command === 'expirewarn') return cmdExpireWarn(ctx, args);
 
   if (command === 'note' || command === 'notes') {
     if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });

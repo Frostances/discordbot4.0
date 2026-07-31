@@ -87,6 +87,7 @@ const { handleVoiceTimeStats, handleMessageStats,
         handleStreamTimeStats, handleCameraTimeStats,
         trackMessage }                                   = require('./modules/stats');
 const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
+const { handleCustomize } = require('./modules/customize');
 
 const { handleInvokeCommand } = require('./modules/invoke');
 
@@ -876,7 +877,7 @@ const ALIASES = {
     // Config
     cfg: 'config', settings: 'config',
     // Levels
-    lvl: 'level', rank: 'level', sl: 'setlevel',
+    lvl: 'levels', rank: 'levels', sl: 'setlevel',
     // Misc
     tt: 'ticket', an: 'antinuke', ar: 'antiraid', am: 'automod',
     vm: 'voicemaster',
@@ -923,7 +924,7 @@ const MOD_COMMANDS = new Set([
     // voice
     'moveall','drag',
     // cases / history / notes
-    'note','notes','history','case','reason','proof','modstats','warnings',
+    'note','notes','history','case','reason','proof','modstats','warnings','clearwarn','clearallwarns','clearallserverwarns','expirewarn',
     'caselog','moderationhistory',
     // warn
     'warn',
@@ -1035,7 +1036,7 @@ client.on('messageCreate', async (message) => {
         if (command === 'antiraid') return handleAntiRaidCommand(message, args);
 
         // ── Levels ──
-        if (command === 'level') return handleLevelsCommand(message, args, client);
+        if (command === 'levels') return handleLevelsCommand(message, args, client);
 
         if (command === 'setxp') {
             if (!isStaffOrAdmin(message.member)) return message.reply('❌ No permission.');
@@ -1229,7 +1230,10 @@ client.on('messageCreate', async (message) => {
          // ── Fake Permissions ──
          if (command === 'fakepermissions') return handleFakePermissionsCommand(message, args);
 
-         // ── Music commands ──
+         // ── Customize (bot owner only) ──
+    if (command === 'customize') return handleCustomize(message, args, client);
+
+    // ── Music commands ──
          if (MUSIC_COMMANDS.has(command)) {
              // Handle queue subcommands
              if (command === 'queue' && args[0]) {
@@ -1353,7 +1357,7 @@ client.on('interactionCreate', async (interaction) => {
                 } catch (err) { return handleCommandError(interaction, err); }
             }
 
-            if (cmd === 'level') {
+            if (cmd === 'levels') {
                 const sub = interaction.options.getSubcommand();
                 if (sub === 'leaderboard') return handleLevelsCommand(interaction, ['leaderboard'], client);
                 if (sub === 'rank') {

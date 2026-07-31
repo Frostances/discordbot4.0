@@ -353,16 +353,8 @@ async function handleMute(ctx, args, client) {
 
     return sendInvokeReply(ctx, ctx.guild.id, 'mute', target, reason, durationStr, c.id);
   } catch {
-    const embed = base(COLORS.error).setTitle('🔇 Member Muted')
-      .addFields(
-        { name: '👤 User', value: `${target.user} (${target.id})`, inline: true },
-        { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
-        { name: '⏱️ Duration', value: durationStr || 'Permanent', inline: true },
-        { name: '📝 Reason', value: reason },
-        { name: '🏷️ Case', value: `#${c.id}`, inline: true },
-      );
-    await sendModLog(ctx.guild, embed);
-    return ctx.reply({ embeds: [embed] });
+    const timeText = durationStr ? ` for **${durationStr}**` : '';
+    return ctx.reply(`${target} you're muted${timeText}`);
   }
 }
 
@@ -432,7 +424,8 @@ async function handleIMute(ctx, args) {
 
     return sendInvokeReply(ctx, ctx.guild.id, 'imute', target, reason, durationStr, c.id);
   } catch {
-    return ctx.reply({ content: `🔇 Image/attachment mute applied to **${target.user.username}**${durationStr ? ` for **${durationStr}**` : ''}.` });
+    const timeText = durationStr ? ` for **${durationStr}**` : '';
+    return ctx.reply(`${target} you can't send images${timeText}`);
   }
 }
 
@@ -496,7 +489,8 @@ async function handleRMute(ctx, args) {
 
     return sendInvokeReply(ctx, ctx.guild.id, 'rmute', target, reason, durationStr, c.id);
   } catch {
-    return ctx.reply({ content: `🔇 Reaction mute applied to **${target.user.username}**${durationStr ? ` for **${durationStr}**` : ''}.` });
+    const timeText = durationStr ? ` for **${durationStr}**` : '';
+    return ctx.reply(`${target} you can't add reactions${timeText}`);
   }
 }
 
@@ -611,8 +605,100 @@ async function restoreMuteTimers(client) {
   }
 }
 
+// ══════════════════════════════════════════════════════════
+// UNMUTE ALL
+// ══════════════════════════════════════════════════════════
+
+async function handleUnmuteAll(ctx) {
+  const { isStaffOrAdmin } = require('./helpers');
+  if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
+
+  const db = getGuildDb(ctx.guild.id);
+  const cfg = db.get('muteConfig', {});
+  if (!cfg.roleId || !ctx.guild.roles.cache.has(cfg.roleId)) {
+    return ctx.reply({ content: '❌ The mute system is not set up.', ephemeral: true });
+  }
+
+  const members = ctx.guild.members.cache.filter(m => m.roles.cache.has(cfg.roleId));
+  if (!members.size) return ctx.reply({ content: '✅ No members are currently muted.' });
+
+  let count = 0;
+  for (const [, member] of members) {
+    await member.roles.remove(cfg.roleId, 'Unmute all command').catch(() => {});
+    const key = `${ctx.guild.id}:${member.id}`;
+    if (MUTE_TIMERS.has(key)) { clearTimeout(MUTE_TIMERS.get(key)); MUTE_TIMERS.delete(key); }
+    count++;
+  }
+
+  createCase(ctx.guild.id, {
+    type: 'unmute', targetId: 'mass', executorId: ctx.author?.id || ctx.user?.id,
+    reason: `Unmuted ${count} member(s) via unmute all`,
+  });
+
+  return ctx.reply({ content: `✅ Unmuted **${count}** member(s).` });
+}
+
+async function handleIUnmuteAll(ctx) {
+  const { isStaffOrAdmin } = require('./helpers');
+  if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
+
+  const db = getGuildDb(ctx.guild.id);
+  const cfg = db.get('imuteConfig', {});
+  if (!cfg.roleId || !ctx.guild.roles.cache.has(cfg.roleId)) {
+    return ctx.reply({ content: '❌ The image mute system is not set up.', ephemeral: true });
+  }
+
+  const members = ctx.guild.members.cache.filter(m => m.roles.cache.has(cfg.roleId));
+  if (!members.size) return ctx.reply({ content: '✅ No members are currently image-muted.' });
+
+  let count = 0;
+  for (const [, member] of members) {
+    await member.roles.remove(cfg.roleId, 'Unimute all command').catch(() => {});
+    const key = `${ctx.guild.id}:${member.id}`;
+    if (IMUTE_TIMERS.has(key)) { clearTimeout(IMUTE_TIMERS.get(key)); IMUTE_TIMERS.delete(key); }
+    count++;
+  }
+
+  createCase(ctx.guild.id, {
+    type: 'iunmute', targetId: 'mass', executorId: ctx.author?.id || ctx.user?.id,
+    reason: `Removed image mute from ${count} member(s) via unimute all`,
+  });
+
+  return ctx.reply({ content: `✅ Removed image mute from **${count}** member(s).` });
+}
+
+async function handleRUnmuteAll(ctx) {
+  const { isStaffOrAdmin } = require('./helpers');
+  if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
+
+  const db = getGuildDb(ctx.guild.id);
+  const cfg = db.get('rmuteConfig', {});
+  if (!cfg.roleId || !ctx.guild.roles.cache.has(cfg.roleId)) {
+    return ctx.reply({ content: '❌ The reaction mute system is not set up.', ephemeral: true });
+  }
+
+  const members = ctx.guild.members.cache.filter(m => m.roles.cache.has(cfg.roleId));
+  if (!members.size) return ctx.reply({ content: '✅ No members are currently reaction-muted.' });
+
+  let count = 0;
+  for (const [, member] of members) {
+    await member.roles.remove(cfg.roleId, 'Unrmute all command').catch(() => {});
+    const key = `${ctx.guild.id}:${member.id}`;
+    if (RMUTE_TIMERS.has(key)) { clearTimeout(RMUTE_TIMERS.get(key)); RMUTE_TIMERS.delete(key); }
+    count++;
+  }
+
+  createCase(ctx.guild.id, {
+    type: 'runmute', targetId: 'mass', executorId: ctx.author?.id || ctx.user?.id,
+    reason: `Removed reaction mute from ${count} member(s) via unrmute all`,
+  });
+
+  return ctx.reply({ content: `✅ Removed reaction mute from **${count}** member(s).` });
+}
+
 module.exports = {
   handleMute, handleUnmute, handleIMute, handleIUnmute,
   handleRMute, handleRUnmute, handleSetupMute, handleSetupIMute, handleSetupRMute,
+  handleUnmuteAll, handleIUnmuteAll, handleRUnmuteAll,
   restoreMuteTimers, applyMutePermsToNewChannel,
 };

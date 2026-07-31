@@ -5,9 +5,10 @@
  * Commands supported: jail, kick, ban, tempban, softban, hardban, timeout, warn
  * 
  * Variables:
- * {user.mention} {user.name} {user.id}
- * {mod.mention} {mod.name} {mod.id}
- * {reason} {guild.name} {guild.id}
+ * {user.mention} {user.name} {user.id} {user.avatar}
+ * {mod.mention} {mod.name} {mod.id} {mod.icon}
+ * {moderator.mention} {moderator.name} {moderator.id} {moderator.icon}
+ * {reason} {guild.name} {guild.id} {guild.icon}
  * {case.id} {duration} {timestamp}
  */
 
@@ -33,22 +34,142 @@ const VALID_COMMANDS = Object.keys(DEFAULT_MESSAGES);
 
 // ══════════════════════════════════════════════════════════
 // VARIABLE REPLACEMENT
+// Supports both {mod.xxx} and {moderator.xxx} aliases
 // ══════════════════════════════════════════════════════════
 function replaceVars(template, vars) {
     if (!template) return template;
-    return template
-        .replace(/{user\.mention}/gi, vars.targetMention || '{user.mention}')
-        .replace(/{user\.name}/gi, vars.targetName || '{user.name}')
-        .replace(/{user\.id}/gi, vars.targetId || '{user.id}')
-        .replace(/{mod\.mention}/gi, vars.modMention || '{mod.mention}')
-        .replace(/{mod\.name}/gi, vars.modName || '{mod.name}')
-        .replace(/{mod\.id}/gi, vars.modId || '{mod.id}')
-        .replace(/{reason}/gi, vars.reason || 'No reason provided')
-        .replace(/{guild\.name}/gi, vars.guildName || '{guild.name}')
-        .replace(/{guild\.id}/gi, vars.guildId || '{guild.id}')
-        .replace(/{case\.id}/gi, vars.caseId || '{case.id}')
-        .replace(/{duration}/gi, vars.duration || '')
-        .replace(/{timestamp}/gi, `<t:${Math.floor(Date.now() / 1000)}:F>`);
+
+    let result = template;
+
+    // User variables
+    result = result.replace(/{user\.mention}/gi, vars.targetMention || vars.userMention || '{user.mention}');
+    result = result.replace(/{user\.name}/gi, vars.targetName || vars.userName || '{user.name}');
+    result = result.replace(/{user\.id}/gi, vars.targetId || vars.userId || '{user.id}');
+    result = result.replace(/{user\.avatar}/gi, vars.targetAvatar || vars.userAvatar || '');
+
+    // Mod variables (both {mod.xxx} and {moderator.xxx})
+    const modMention = vars.modMention || vars.moderatorMention || '{mod.mention}';
+    const modName = vars.modName || vars.moderatorName || '{mod.name}';
+    const modId = vars.modId || vars.moderatorId || '{mod.id}';
+    const modIcon = vars.modIcon || vars.moderatorIcon || vars.modAvatar || vars.moderatorAvatar || '';
+
+    result = result.replace(/{mod\.mention}/gi, modMention);
+    result = result.replace(/{moderator\.mention}/gi, modMention);
+    result = result.replace(/{mod\.name}/gi, modName);
+    result = result.replace(/{moderator\.name}/gi, modName);
+    result = result.replace(/{mod\.id}/gi, modId);
+    result = result.replace(/{moderator\.id}/gi, modId);
+    result = result.replace(/{mod\.icon}/gi, modIcon);
+    result = result.replace(/{moderator\.icon}/gi, modIcon);
+    result = result.replace(/{mod\.avatar}/gi, modIcon);
+    result = result.replace(/{moderator\.avatar}/gi, modIcon);
+
+    // Guild variables
+    result = result.replace(/{guild\.name}/gi, vars.guildName || '{guild.name}');
+    result = result.replace(/{guild\.id}/gi, vars.guildId || '{guild.id}');
+    result = result.replace(/{guild\.icon}/gi, vars.guildIcon || '');
+
+    // Other variables
+    result = result.replace(/{reason}/gi, vars.reason || 'No reason provided');
+    result = result.replace(/{case\.id}/gi, vars.caseId || '{case.id}');
+    result = result.replace(/{duration}/gi, vars.duration || '');
+    result = result.replace(/{timestamp}/gi, '<t:' + Math.floor(Date.now() / 1000) + ':F>');
+
+    return result;
+}
+
+// ══════════════════════════════════════════════════════════
+// PARSE EMBED CODE
+// Handles {embed}$v{...} format with invoke variables
+// ══════════════════════════════════════════════════════════
+function parseEmbedCode(raw, vars) {
+    const text = replaceVars(raw, vars);
+
+    if (!text.trim().startsWith('{embed}')) {
+        return { content: text, embeds: [], components: [] };
+    }
+
+    const embed = new EmbedBuilder();
+    let content = '';
+
+    // Remove {embed} prefix
+    const body = text.replace(/^\{embed\}/i, '').trim();
+
+    // Parse $v{...} segments
+    const segments = body.split(/\$v\{/g).filter(s => s.trim());
+
+    for (const seg of segments) {
+        const clean = seg.replace(/\}$/, '').trim();
+        if (!clean) continue;
+
+        const colonIdx = clean.indexOf(':');
+        if (colonIdx === -1) continue;
+
+        const key = clean.slice(0, colonIdx).trim().toLowerCase();
+        const value = clean.slice(colonIdx + 1).trim();
+
+        switch (key) {
+            case 'message':
+            case 'content':
+                content = value;
+                break;
+            case 'title':
+                embed.setTitle(value);
+                break;
+            case 'description':
+                embed.setDescription(value);
+                break;
+            case 'color':
+                embed.setColor(value.replace('#', ''));
+                break;
+            case 'footer':
+                // Handle "text && iconURL" format
+                const footerParts = value.split(/\s*&&\s*/);
+                embed.setFooter({ 
+                    text: footerParts[0] || '', 
+                    iconURL: footerParts[1] || undefined 
+                });
+                break;
+            case 'author':
+                // Handle "name && iconURL" format
+                const authorParts = value.split(/\s*&&\s*/);
+                embed.setAuthor({ 
+                    name: authorParts[0] || '', 
+                    iconURL: authorParts[1] || undefined 
+                });
+                break;
+            case 'thumbnail':
+                embed.setThumbnail(value);
+                break;
+            case 'image':
+                embed.setImage(value);
+                break;
+            case 'timestamp':
+                embed.setTimestamp();
+                break;
+            case 'field':
+                // Parse field: "Name && Value inline" or "Name && Value"
+                const fieldMatch = value.match(/^(.+?)\s*&&\s*(.+?)(?:\s+(inline))?$/i);
+                if (fieldMatch) {
+                    embed.addFields({
+                        name: fieldMatch[1].trim(),
+                        value: fieldMatch[2].trim(),
+                        inline: !!fieldMatch[3]
+                    });
+                } else {
+                    // Simple field without &&
+                    const parts = value.split(/\s*&&\s*/);
+                    embed.addFields({
+                        name: parts[0] || '\u200B',
+                        value: parts[1] || '\u200B',
+                        inline: false
+                    });
+                }
+                break;
+        }
+    }
+
+    return { content: content || undefined, embeds: [embed], components: [] };
 }
 
 // ══════════════════════════════════════════════════════════
@@ -59,10 +180,7 @@ function parseInvokeMessage(raw, vars) {
 
     // Check if it's embed code
     if (text.trim().startsWith('{embed}')) {
-        const { parseEmbedCode, buildVars } = require('./welcomeSystem');
-        const embedVars = buildVars({ guild: { id: vars.guildId, name: vars.guildName } });
-        const result = parseEmbedCode(text, { ...embedVars, ...vars });
-        return result;
+        return parseEmbedCode(raw, vars);
     }
 
     // Plain text
@@ -103,7 +221,7 @@ async function sendInvokeDm(user, guildId, command, vars) {
 
     try {
         if (dmPayload.embeds?.length) {
-            await user.send({ embeds: dmPayload.embeds, components: dmPayload.components || [] });
+            await user.send({ content: dmPayload.content, embeds: dmPayload.embeds });
         } else if (dmPayload.content) {
             await user.send(dmPayload.content);
         }
@@ -131,20 +249,26 @@ async function handleInvokeCommand(message, args) {
     // Show current settings
     if (!subCmd || subCmd === 'list') {
         const invokes = db.get('invokeMessages', {});
-        let desc = '**Customized Commands:**\\n';
+        let desc = '**Customized Commands:**\n';
         let hasAny = false;
 
         for (const cmd of VALID_COMMANDS) {
             const settings = invokes[cmd];
             if (settings?.message || settings?.dm) {
                 hasAny = true;
-                desc += `\\n**${cmd}**\\n`;
-                if (settings.message) desc += `• Message: \\`${settings.message.substring(0, 50)}${settings.message.length > 50 ? '...' : ''}\\`\\n`;
-                if (settings.dm) desc += `• DM: \\`${settings.dm.substring(0, 50)}${settings.dm.length > 50 ? '...' : ''}\\`\\n`;
+                desc += '\n**' + cmd + '**\n';
+                if (settings.message) {
+                    const preview = settings.message.substring(0, 50) + (settings.message.length > 50 ? '...' : '');
+                    desc += '• Message: `' + preview + '`\n';
+                }
+                if (settings.dm) {
+                    const preview = settings.dm.substring(0, 50) + (settings.dm.length > 50 ? '...' : '');
+                    desc += '• DM: `' + preview + '`\n';
+                }
             }
         }
 
-        if (!hasAny) desc += '\\n*No custom invoke messages set. Use `,invoke <command> message/dm <text>`*';
+        if (!hasAny) desc += '\n*No custom invoke messages set. Use `,invoke <command> message/dm <text>`*';
 
         return message.reply({
             embeds: [base(COLORS.primary).setTitle('📨 Invoke Messages').setDescription(desc)]
@@ -155,7 +279,7 @@ async function handleInvokeCommand(message, args) {
     if (!VALID_COMMANDS.includes(subCmd)) {
         return message.reply({
             embeds: [base(COLORS.error).setTitle('❌ Invalid Command').setDescription(
-                `Valid commands: ${VALID_COMMANDS.map(c => `\`${c}\``).join(', ')}`
+                'Valid commands: ' + VALID_COMMANDS.map(c => '`' + c + '`').join(', ')
             )]
         });
     }
@@ -168,7 +292,7 @@ async function handleInvokeCommand(message, args) {
             db.set('invokeMessages', invokes);
         }
         return message.reply({
-            embeds: [base(COLORS.success).setTitle('✅ Reset').setDescription(`Invoke settings for \`${subCmd}\` have been reset to defaults.`)]
+            embeds: [base(COLORS.success).setTitle('✅ Reset').setDescription('Invoke settings for `' + subCmd + '` have been reset to defaults.')]
         });
     }
 
@@ -176,13 +300,13 @@ async function handleInvokeCommand(message, args) {
     if (!['message', 'dm'].includes(type)) {
         return message.reply({
             embeds: [base(COLORS.error).setTitle('❌ Invalid Type').setDescription(
-                'Usage:\\n' +
-                '`,invoke <command> message <text>` — set public reply\\n' +
-                '`,invoke <command> dm <text>` — set DM to user\\n' +
-                '`,invoke <command> reset` — reset to defaults\\n' +
-                '`,invoke list` — view all settings\\n\\n' +
-                '**Example:**\\n' +
-                '`,invoke jail message {user.mention} has been jailed for {reason}`\\n' +
+                'Usage:\n' +
+                '`,invoke <command> message <text>` — set public reply\n' +
+                '`,invoke <command> dm <text>` — set DM to user\n' +
+                '`,invoke <command> reset` — reset to defaults\n' +
+                '`,invoke list` — view all settings\n\n' +
+                '**Example:**\n' +
+                '`,invoke jail message {user.mention} has been jailed for {reason}`\n' +
                 '`,invoke jail dm You were jailed for {reason}`'
             )]
         });
@@ -200,17 +324,28 @@ async function handleInvokeCommand(message, args) {
     invokes[subCmd][type] = rawText;
     db.set('invokeMessages', invokes);
 
-    // Preview
+    // Preview with all variables
     const previewVars = {
         targetMention: '@User',
         targetName: 'ExampleUser',
         targetId: '123456789',
+        targetAvatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
+        userMention: '@User',
+        userName: 'ExampleUser',
+        userId: '123456789',
+        userAvatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
         modMention: '@Moderator',
         modName: 'Moderator',
         modId: '987654321',
+        modIcon: 'https://cdn.discordapp.com/embed/avatars/1.png',
+        moderatorMention: '@Moderator',
+        moderatorName: 'Moderator',
+        moderatorId: '987654321',
+        moderatorIcon: 'https://cdn.discordapp.com/embed/avatars/1.png',
         reason: 'Example reason',
         guildName: message.guild.name,
         guildId: message.guild.id,
+        guildIcon: message.guild.iconURL() || '',
         caseId: '#42',
         duration: '1d',
     };
@@ -218,11 +353,14 @@ async function handleInvokeCommand(message, args) {
     const preview = parseInvokeMessage(rawText, previewVars);
 
     const embed = base(COLORS.success)
-        .setTitle(`✅ Invoke ${type === 'message' ? 'Reply' : 'DM'} Updated`)
-        .setDescription(`Command: \`${subCmd}\`\\nType: \`${type}\``)
-        .addFields({ name: 'Preview', value: preview.content || '*Embed message*' });
+        .setTitle('✅ Invoke ' + (type === 'message' ? 'Reply' : 'DM') + ' Updated')
+        .setDescription('Command: `' + subCmd + '`\nType: `' + type + '`');
 
-    return message.reply({ embeds: [embed] });
+    if (preview.content) {
+        embed.addFields({ name: 'Content Preview', value: preview.content.substring(0, 1000) || '*None*' });
+    }
+
+    return message.reply({ embeds: [embed, ...(preview.embeds || [])] });
 }
 
 module.exports = {

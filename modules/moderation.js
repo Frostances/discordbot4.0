@@ -59,17 +59,49 @@ async function askConfirmation(ctx, embed) {
 // ──────────────────────────────────────────────────────────
 // INVOKE HELPER — sends custom reply or fallback
 // ──────────────────────────────────────────────────────────
-function sendInvokeReply(ctx, guildId, command, vars) {
- try {
- const { getInvokeReply } = require('./invoke');
- const invMsg = getInvokeReply(guildId, command, vars);
- if (invMsg && (invMsg.content || invMsg.embeds?.length)) {
- if (ctx.editReply) return ctx.editReply(invMsg);
- return ctx.reply(invMsg);
- }
- } catch { /* invoke module not loaded */ }
- if (ctx.editReply) return ctx.editReply({ content: '👍', embeds: [], components: [] });
- return ctx.reply('👍');
+function buildInvokeVars(ctx, target, reason, duration, caseId) {
+  const authorId = ctx.author?.id || ctx.user?.id;
+  const guild = ctx.guild;
+  const modMember = ctx.member;
+
+  return {
+      targetMention: target ? `<@${target.id}>` : '',
+      targetName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
+      targetId: target ? target.id : '',
+      targetAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
+      userMention: target ? `<@${target.id}>` : '',
+      userName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
+      userId: target ? target.id : '',
+      userAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
+      modMention: `<@${authorId}>`,
+      modName: modMember?.user?.username || modMember?.username || 'Unknown',
+      modId: authorId,
+      modIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
+      moderatorMention: `<@${authorId}>`,
+      moderatorName: modMember?.user?.username || modMember?.username || 'Unknown',
+      moderatorId: authorId,
+      moderatorIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
+      guildName: guild?.name || '',
+      guildId: guild?.id || '',
+      guildIcon: guild?.iconURL?.() || '',
+      reason: reason || 'No reason provided',
+      caseId: caseId ? '#' + caseId : '',
+      duration: duration || '',
+  };
+}
+
+function sendInvokeReply(ctx, guildId, command, target, reason, duration, caseId) {
+  try {
+      const { getInvokeReply } = require('./invoke');
+      const vars = buildInvokeVars(ctx, target, reason, duration, caseId);
+      const invMsg = getInvokeReply(guildId, command, vars);
+      if (invMsg && (invMsg.content || invMsg.embeds?.length)) {
+          if (ctx.editReply) return ctx.editReply(invMsg);
+          return ctx.reply(invMsg);
+      }
+  } catch { /* invoke module not loaded */ }
+  if (ctx.editReply) return ctx.editReply({ content: '👍', embeds: [], components: [] });
+  return ctx.reply('👍');
 }
 
 // ──────────────────────────────────────────────────────────

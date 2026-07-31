@@ -940,9 +940,6 @@ client.on('messageCreate', async (message) => {
     if (isModuleEnabled(message.guild.id, 'automod'))  await runAutoMod(message).catch(() => {});
     if (isModuleEnabled(message.guild.id, 'streaks'))  await handleStreak(message).catch(() => {});
     if (isModuleEnabled(message.guild.id, 'levels'))   await handleXpGain(message).catch(() => {});
-    
-     // ── Invoke Messages ──
-     if (command === 'invoke') return handleInvokeCommand(message, args);
 
     // ── AFK system ──
     const db = getGuildDb(message.guild.id);
@@ -985,6 +982,9 @@ client.on('messageCreate', async (message) => {
     logger.command(message.author.tag, message.guild.name, command);
 
     try {
+         // ── Invoke Messages ──
+         if (command === 'invoke') return handleInvokeCommand(message, args);
+        
         // ── Help ──
         if (command === 'help') return handleHelp(message, args, client, prefix);
 

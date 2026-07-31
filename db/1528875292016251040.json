@@ -41,6 +41,40 @@
       "status": "active",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 3,
+      "type": "imute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "Image mute",
+      "timestamp": 1785503992879,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 4,
+      "type": "imute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "Image mute",
+      "timestamp": 1785503998162,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -81,8 +115,8 @@
   },
   "users": {
     "1410668779347771402": {
-      "xp": 5436,
-      "level": 4,
+      "xp": 5977,
+      "level": 5,
       "balance": 0,
       "bank": 0,
       "warnings": [],
@@ -360,15 +394,15 @@
       "1410668779347771402": {
         "daily": {
           "2026-07-30": 63,
-          "2026-07-31": 11
+          "2026-07-31": 28
         },
         "weekly": {
-          "2026-07-27": 74
+          "2026-07-27": 91
         },
         "monthly": {
-          "2026-07": 74
+          "2026-07": 91
         },
-        "total": 74
+        "total": 91
       },
       "1371931756692897893": {
         "daily": {
@@ -518,6 +552,11 @@
   "sharedBoosterRoles": {
     "1528875292016251040": {
       "1371931756692897893": []
+    }
+  },
+  "invokeMessages": {
+    "kick": {
+      "dm": "{embed}$v{title: Kicked :wh_exclaim: }$v{field: **By** && {moderator.mention}inline}$v{field: **Reason** && {reason}inline}$v{description: \n**Server information**\n__**Guild id:**__\n:staff: `{guild.id}`\n__**Guild name:**__\n:staff: **{guild.name}**}$v{author: {user.name} && {guild.icon}$v{thumbnail: {user.avatar}$v{footer: Dm a staff member if this is a false punishment}"
     }
   }
 }

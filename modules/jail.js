@@ -18,51 +18,51 @@ async function setupJail(guild) {
 
  // Create jail role
  const role = await guild.roles.create({
-   name: 'Jailed', color: '#808080', permissions: [],
-   reason: 'Jail system setup',
+ name: 'Jailed', color: '#808080', permissions: [],
+ reason: 'Jail system setup',
  });
 
  // Deny access to all channels
  for (const [, ch] of guild.channels.cache) {
-   if (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildAnnouncement || ch.type === ChannelType.GuildVoice || ch.type === ChannelType.GuildForum || ch.type === ChannelType.GuildStageVoice) {
-     await ch.permissionOverwrites.edit(role, { ViewChannel: false }).catch(() => {});
-   }
-   if (ch.type === ChannelType.GuildCategory) {
-     await ch.permissionOverwrites.edit(role, { ViewChannel: false }).catch(() => {});
-   }
+ if (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildAnnouncement || ch.type === ChannelType.GuildVoice || ch.type === ChannelType.GuildForum || ch.type === ChannelType.GuildStageVoice) {
+ await ch.permissionOverwrites.edit(role, { ViewChannel: false }).catch(() => {});
+ }
+ if (ch.type === ChannelType.GuildCategory) {
+ await ch.permissionOverwrites.edit(role, { ViewChannel: false }).catch(() => {});
+ }
  }
 
  // Jail channel (create if not exists)
  let jailCh = null;
  if (cfg.jailChannelId) {
-   jailCh = guild.channels.cache.get(cfg.jailChannelId);
+ jailCh = guild.channels.cache.get(cfg.jailChannelId);
  }
 
  if (!jailCh) {
-   // Find or create a jail channel
-   const modCat = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase().includes('moderation'));
-   jailCh = await guild.channels.create({
-     name: 'jail',
-     type: ChannelType.GuildText,
-     parent: modCat?.id || null,
-     permissionOverwrites: [
-       { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-       { id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles] },
-     ],
-     reason: 'Jail system setup',
-   }).catch(() => null);
+ // Find or create a jail channel
+ const modCat = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase().includes('moderation'));
+ jailCh = await guild.channels.create({
+ name: 'jail',
+ type: ChannelType.GuildText,
+ parent: modCat?.id || null,
+ permissionOverwrites: [
+ { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+ { id: role.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles] },
+ ],
+ reason: 'Jail system setup',
+ }).catch(() => null);
 
-   if (jailCh) cfg.jailChannelId = jailCh.id;
+ if (jailCh) cfg.jailChannelId = jailCh.id;
  }
 
  if (jailCh) {
-   await jailCh.permissionOverwrites.edit(role, {
-     ViewChannel: true,
-     SendMessages: true,
-     ReadMessageHistory: true,
-     EmbedLinks: true,
-     AttachFiles: true,
-   }).catch(() => {});
+ await jailCh.permissionOverwrites.edit(role, {
+ ViewChannel: true,
+ SendMessages: true,
+ ReadMessageHistory: true,
+ EmbedLinks: true,
+ AttachFiles: true,
+ }).catch(() => {});
  }
 
  cfg.roleId = role.id;
@@ -85,18 +85,18 @@ async function applyJailPermsToNewChannel(channel) {
  if (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement ||
      channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildForum ||
      channel.type === ChannelType.GuildStageVoice) {
-   await channel.permissionOverwrites.edit(cfg.roleId, { ViewChannel: false }).catch(() => {});
+ await channel.permissionOverwrites.edit(cfg.roleId, { ViewChannel: false }).catch(() => {});
  }
 
  // But CAN see jail channel
  if (cfg.jailChannelId && channel.id === cfg.jailChannelId) {
-   await channel.permissionOverwrites.edit(cfg.roleId, {
-     ViewChannel: true,
-     SendMessages: true,
-     ReadMessageHistory: true,
-     EmbedLinks: true,
-     AttachFiles: true,
-   }).catch(() => {});
+ await channel.permissionOverwrites.edit(cfg.roleId, {
+ ViewChannel: true,
+ SendMessages: true,
+ ReadMessageHistory: true,
+ EmbedLinks: true,
+ AttachFiles: true,
+ }).catch(() => {});
  }
 }
 
@@ -111,14 +111,14 @@ async function jailMember(guild, member, reason, duration, executorId, client) {
 
  // Save current roles (excluding @everyone and jail role)
  const savedRoles = member.roles.cache
-   .filter(r => r.id !== guild.roles.everyone.id && r.id !== roleId)
-   .map(r => r.id);
+ .filter(r => r.id !== guild.roles.everyone.id && r.id !== roleId)
+ .map(r => r.id);
 
  // Store in DB
  const jailed = db.get('jailed', {});
  jailed[member.id] = {
-   userId: member.id, savedRoles, reason, by: executorId,
-   at: Date.now(), expires: duration ? Date.now() + duration : null,
+ userId: member.id, savedRoles, reason, by: executorId,
+ at: Date.now(), expires: duration ? Date.now() + duration : null,
  };
  db.set('jailed', jailed);
 
@@ -126,9 +126,9 @@ async function jailMember(guild, member, reason, duration, executorId, client) {
  await member.roles.set([guild.roles.everyone.id, roleId]).catch(() => {});
 
  const c = createCase(guild.id, {
-   type: 'jail', targetId: member.id, executorId, reason,
-   duration: duration ? formatDuration(duration) : 'Permanent',
-   expires: duration ? Date.now() + duration : null,
+ type: 'jail', targetId: member.id, executorId, reason,
+ duration: duration ? formatDuration(duration) : 'Permanent',
+ expires: duration ? Date.now() + duration : null,
  });
 
  // Schedule auto-release
@@ -145,8 +145,8 @@ async function unjailMember(guild, memberId, reason, executorId, client) {
 
  const member = await guild.members.fetch(memberId).catch(() => null);
  if (member) {
-   const rolesToRestore = (entry.savedRoles || []).filter(id => guild.roles.cache.has(id));
-   await member.roles.set([guild.roles.everyone.id, ...rolesToRestore]).catch(() => {});
+ const rolesToRestore = (entry.savedRoles || []).filter(id => guild.roles.cache.has(id));
+ await member.roles.set([guild.roles.everyone.id, ...rolesToRestore]).catch(() => {});
  }
 
  delete jailed[memberId];
@@ -164,14 +164,14 @@ function scheduleRelease(guild, userId, ms, client) {
  const key = `${guild.id}:${userId}`;
  if (JAIL_TIMERS.has(key)) clearTimeout(JAIL_TIMERS.get(key));
  const timer = setTimeout(async () => {
-   JAIL_TIMERS.delete(key);
-   await unjailMember(guild, userId, 'Auto-released (time served)', guild.client?.user?.id || 'system', client);
-   const db = getGuildDb(guild.id);
-   const cfg = db.get('jailConfig', {});
-   if (cfg.jailChannelId) {
-     const ch = guild.channels.cache.get(cfg.jailChannelId);
-     if (ch) await ch.send(`🔓 <@${userId}> has been released from jail.`).catch(() => {});
-   }
+ JAIL_TIMERS.delete(key);
+ await unjailMember(guild, userId, 'Auto-released (time served)', guild.client?.user?.id || 'system', client);
+ const db = getGuildDb(guild.id);
+ const cfg = db.get('jailConfig', {});
+ if (cfg.jailChannelId) {
+ const ch = guild.channels.cache.get(cfg.jailChannelId);
+ if (ch) await ch.send(`🔓 <@${userId}> has been released from jail.`).catch(() => {});
+ }
  }, ms);
  JAIL_TIMERS.set(key, timer);
 }
@@ -195,9 +195,9 @@ async function handleJail(ctx, args, client) {
  // Parse optional duration and reason: .jail @user [duration] [reason]
  let durationStr = null, reason = 'No reason provided';
  if (args[1]) {
-   const maybeMs = parseDuration(args[1]);
-   if (maybeMs) { durationStr = args[1]; reason = args.slice(2).join(' ') || reason; }
-   else { reason = args.slice(1).join(' '); }
+ const maybeMs = parseDuration(args[1]);
+ if (maybeMs) { durationStr = args[1]; reason = args.slice(2).join(' ') || reason; }
+ else { reason = args.slice(1).join(' '); }
  }
  const durationMs = durationStr ? parseDuration(durationStr) : null;
  const authorId = ctx.author?.id || ctx.user?.id;
@@ -206,29 +206,29 @@ async function handleJail(ctx, args, client) {
 
  // Invoke DM
  try {
-   const { sendInvokeDm } = require('./invoke');
-   const { buildInvokeVars } = require('./moderation');
-   const vars = buildInvokeVars(ctx, target, reason, durationStr, c.id);
-   await sendInvokeDm(target.user, ctx.guild.id, 'jail', vars);
+ const { sendInvokeDm } = require('./invoke');
+ const { buildInvokeVars } = require('./moderation');
+ const vars = buildInvokeVars(ctx, target, reason, durationStr, c.id);
+ await sendInvokeDm(target.user, ctx.guild.id, 'jail', vars);
  } catch {}
 
  // Invoke reply
  try {
-   const { sendInvokeReply } = require('./moderation');
-   return sendInvokeReply(ctx, ctx.guild.id, 'jail', target, reason, durationStr, c.id);
+ const { sendInvokeReply } = require('./moderation');
+ return sendInvokeReply(ctx, ctx.guild.id, 'jail', target, reason, durationStr, c.id);
  } catch {
-   const embed = base(COLORS.error)
-     .setTitle('🏛️ Member Jailed')
-     .setThumbnail(target.user.displayAvatarURL())
-     .addFields(
-       { name: '👤 User', value: `${target.user} (${target.id})`, inline: true },
-       { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
-       { name: '📝 Reason', value: reason },
-       { name: '⏱️ Duration', value: durationStr || 'Permanent', inline: true },
-       { name: '🏷️ Case', value: `#${c.id}`, inline: true },
-     );
-   await sendModLog(ctx.guild, embed);
-   return ctx.reply({ embeds: [embed] });
+ const embed = base(COLORS.error)
+ .setTitle('🏛️ Member Jailed')
+ .setThumbnail(target.user.displayAvatarURL())
+ .addFields(
+ { name: '👤 User', value: `${target.user} (${target.id})`, inline: true },
+ { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
+ { name: '📝 Reason', value: reason },
+ { name: '⏱️ Duration', value: durationStr || 'Permanent', inline: true },
+ { name: '🏷️ Case', value: `#${c.id}`, inline: true },
+ );
+ await sendModLog(ctx.guild, embed);
+ return ctx.reply({ embeds: [embed] });
  }
 }
 
@@ -244,25 +244,25 @@ async function handleUnjail(ctx, args, client) {
 
  // Invoke DM
  try {
-   const { sendInvokeDm } = require('./invoke');
-   const { buildInvokeVars } = require('./moderation');
-   const vars = buildInvokeVars(ctx, target, reason, null, null);
-   await sendInvokeDm(target.user || target, ctx.guild.id, 'unjail', vars);
+ const { sendInvokeDm } = require('./invoke');
+ const { buildInvokeVars } = require('./moderation');
+ const vars = buildInvokeVars(ctx, target, reason, null, null);
+ await sendInvokeDm(target.user || target, ctx.guild.id, 'unjail', vars);
  } catch {}
 
  // Invoke reply
  try {
-   const { sendInvokeReply } = require('./moderation');
-   return sendInvokeReply(ctx, ctx.guild.id, 'unjail', target, reason, null, null);
+ const { sendInvokeReply } = require('./moderation');
+ return sendInvokeReply(ctx, ctx.guild.id, 'unjail', target, reason, null, null);
  } catch {
-   const embed = base(COLORS.success).setTitle('🔓 Member Released from Jail')
-     .addFields(
-       { name: '👤 User', value: `<@${target.id}>`, inline: true },
-       { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
-       { name: '📝 Reason', value: reason },
-     );
-   await sendModLog(ctx.guild, embed);
-   return ctx.reply({ embeds: [embed] });
+ const embed = base(COLORS.success).setTitle('🔓 Member Released from Jail')
+ .addFields(
+ { name: '👤 User', value: `<@${target.id}>`, inline: true },
+ { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
+ { name: '📝 Reason', value: reason },
+ );
+ await sendModLog(ctx.guild, embed);
+ return ctx.reply({ embeds: [embed] });
  }
 }
 
@@ -274,8 +274,8 @@ async function handleJailList(ctx) {
  if (!entries.length) return ctx.reply({ content: '✅ No members currently jailed.' });
 
  const lines = entries.map(e => {
-   const exp = e.expires ? `Expires <t:${Math.floor(e.expires / 1000)}:R>` : 'Permanent';
-   return `<@${e.userId}> — ${e.reason} *(${exp})*`;
+ const exp = e.expires ? `Expires <t:${Math.floor(e.expires / 1000)}:R>` : 'Permanent';
+ return `<@${e.userId}> — ${e.reason} *(${exp})*`;
  }).join('\n');
 
  return ctx.reply({ embeds: [base(COLORS.primary).setTitle('🏛️ Jailed Members').setDescription(lines)] });
@@ -288,47 +288,47 @@ async function handleJailSetup(ctx, args) {
  const cfg = db.get('jailConfig', {});
 
  if (args[0] === 'channel') {
-   const ch = ctx.mentions?.channels?.first();
-   if (!ch) return ctx.reply({ content: '❌ Mention a channel.' });
-   cfg.jailChannelId = ch.id;
-   db.set('jailConfig', cfg);
+ const ch = ctx.mentions?.channels?.first();
+ if (!ch) return ctx.reply({ content: '❌ Mention a channel.' });
+ cfg.jailChannelId = ch.id;
+ db.set('jailConfig', cfg);
 
-   // Apply jail role perms to this channel
-   if (cfg.roleId && ctx.guild.roles.cache.has(cfg.roleId)) {
-     await ch.permissionOverwrites.edit(cfg.roleId, {
-       ViewChannel: true,
-       SendMessages: true,
-       ReadMessageHistory: true,
-       EmbedLinks: true,
-       AttachFiles: true,
-     }).catch(() => {});
-   }
+ // Apply jail role perms to this channel
+ if (cfg.roleId && ctx.guild.roles.cache.has(cfg.roleId)) {
+ await ch.permissionOverwrites.edit(cfg.roleId, {
+ ViewChannel: true,
+ SendMessages: true,
+ ReadMessageHistory: true,
+ EmbedLinks: true,
+ AttachFiles: true,
+ }).catch(() => {});
+ }
 
-   return ctx.reply({ content: `✅ Jail channel set to <#${ch.id}>.` });
+ return ctx.reply({ content: `✅ Jail channel set to <#${ch.id}>.` });
  }
 
  const roleId = await setupJail(ctx.guild);
  return ctx.reply({
-   embeds: [base(COLORS.success).setTitle('🏛️ Jail System Set Up')
-     .setDescription(`Jail role: <@&${roleId}> (\`${roleId}\`)\n\nAll channels deny the Jailed role. Only the jail channel allows it.`)
-     .addFields(
-       { name: 'Setup', value: 'Use `.jail setup channel #channel` to set a custom jail channel.', inline: false }
-     )]
+ embeds: [base(COLORS.success).setTitle('🏛️ Jail System Set Up')
+ .setDescription(`Jail role: <@&${roleId}> (\`${roleId}\`)\n\nAll channels deny the Jailed role. Only the jail channel allows it.`)
+ .addFields(
+ { name: 'Setup', value: 'Use `.jail setup channel #channel` to set a custom jail channel.', inline: false }
+ )]
  });
 }
 
 // Restore jail timers on bot restart
 async function restoreJailTimers(client) {
  for (const guild of client.guilds.cache.values()) {
-   const jailed = getGuildDb(guild.id).get('jailed', {});
-   for (const [uid, entry] of Object.entries(jailed)) {
-     if (entry.expires && entry.expires > Date.now()) {
-       const remaining = entry.expires - Date.now();
-       scheduleRelease(guild, uid, remaining, client);
-     } else if (entry.expires && entry.expires <= Date.now()) {
-       await unjailMember(guild, uid, 'Auto-released (time served)', 'system', client).catch(() => {});
-     }
-   }
+ const jailed = getGuildDb(guild.id).get('jailed', {});
+ for (const [uid, entry] of Object.entries(jailed)) {
+ if (entry.expires && entry.expires > Date.now()) {
+ const remaining = entry.expires - Date.now();
+ scheduleRelease(guild, uid, remaining, client);
+ } else if (entry.expires && entry.expires <= Date.now()) {
+ await unjailMember(guild, uid, 'Auto-released (time served)', 'system', client).catch(() => {});
+ }
+ }
  }
 }
 

@@ -10,6 +10,8 @@ const fs   = require('fs');
 const path = require('path');
 const { ActivityType } = require('discord.js');
 const { SimpleShardingStrategy } = require('@discordjs/ws');
+const { applyMutePermsToNewChannel } = require('./modules/mute');
+
 
 // ══════════════════════════════════════════════════════════
 //  CORE UTILITIES
@@ -1557,6 +1559,15 @@ client.on('channelCreate', async (channel) => {
     const logCh = channel.guild.channels.cache.get(vcLogId);
     if (logCh) await logCh.send(`🎤 New voice channel created: **${channel.name}** — <#${channel.id}>`).catch(() => {});
 });
+
+client.on('channelCreate', async (channel) => {
+  if (!channel.guild) return;
+  try {
+    await applyMutePermsToNewChannel(channel).catch(() => {});
+    await applyJailPermsToNewChannel(channel).catch(() => {});
+  } catch {}
+});
+
 
 // ══════════════════════════════════════════════════════════
 //  READY

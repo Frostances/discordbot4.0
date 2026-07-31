@@ -92,6 +92,57 @@
       "status": "active",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 6,
+      "type": "imute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "Image mute",
+      "timestamp": 1785518108402,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 7,
+      "type": "rmute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "Reaction mute",
+      "timestamp": 1785518135307,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 8,
+      "type": "imute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "10s",
+      "timestamp": 1785518263320,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -132,7 +183,7 @@
   },
   "users": {
     "1410668779347771402": {
-      "xp": 7024,
+      "xp": 7830,
       "level": 5,
       "balance": 0,
       "bank": 0,
@@ -411,15 +462,15 @@
       "1410668779347771402": {
         "daily": {
           "2026-07-30": 63,
-          "2026-07-31": 51
+          "2026-07-31": 78
         },
         "weekly": {
-          "2026-07-27": 114
+          "2026-07-27": 141
         },
         "monthly": {
-          "2026-07": 114
+          "2026-07": 141
         },
-        "total": 114
+        "total": 141
       },
       "1371931756692897893": {
         "daily": {
@@ -577,6 +628,12 @@
     },
     "ban": {
       "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Banned\n<:idksillydraw:1532735310050496635> You've been banned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Contact Mod to Appeal inline}$v{footer: --------------------------------------------------------------}$v{thumbnail: {user.avatar}}"
+    },
+    "unban": {
+      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Unbanned <:known:1531260107306831872> \n<:idksillydraw:1532735310050496635> You've been Unbanned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
+    },
+    "imute": {
+      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Unbanned <:known:1531260107306831872> \n<:idksillydraw:1532735310050496635> You've been Unbanned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
     }
   },
   "roleBackups": {
@@ -584,5 +641,11 @@
       "1528875292100132962",
       "1528875292100132957"
     ]
+  },
+  "imuteConfig": {
+    "roleId": "1532798775209492540"
+  },
+  "rmuteConfig": {
+    "roleId": "1532798890020044870"
   }
 }

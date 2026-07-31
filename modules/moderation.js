@@ -17,9 +17,9 @@ const {
 
 // ── Sub-module imports ──
 const { handlePurge } = require('./purge');
-const { handleJail, handleUnjail, handleJailList, handleJailSetup } = require('./jail');
+const { handleJail, handleUnjail, handleJailList, handleJailSetup, applyJailPermsToNewChannel } = require('./jail');
 const { handleMute, handleUnmute, handleIMute, handleIUnmute,
- handleRMute, handleRUnmute, handleSetupMute } = require('./mute');
+ handleRMute, handleRUnmute, handleSetupMute, handleSetupIMute, handleSetupRMute } = require('./mute');
 const { handleRole, handleTempRole } = require('./roles');
 const { handleLock, handleUnlock, handleUnlockAll, handleLockdown, handleLockdownIgnore,
  handleHide, handleUnhide, handleTalk,
@@ -103,7 +103,6 @@ function sendInvokeReply(ctx, guildId, command, target, reason, duration, caseId
  if (ctx.editReply) return ctx.editReply({ content: '👍', embeds: [], components: [] });
  return ctx.reply('👍');
 }
-
 // ──────────────────────────────────────────────────────────
 // MAIN DISPATCH
 // ──────────────────────────────────────────────────────────
@@ -565,6 +564,8 @@ async function handleModerationCommand(ctx, command, args, client) {
  if (command === 'rmute') return handleRMute(ctx, args);
  if (command === 'runmute') return handleRUnmute(ctx, args);
  if (command === 'setupmute') return handleSetupMute(ctx, args);
+ if (command === 'setupimute') return handleSetupIMute(ctx, args);
+ if (command === 'setuprmute') return handleSetupRMute(ctx, args);
 
  // ════════════════════════════════════════════
  // JAIL SYSTEM
@@ -719,4 +720,4 @@ async function restoreTempBans(client) {
  logger.info('TEMPBAN', `Restored ${restored} active tempban(s); processed ${expired} overdue`);
 }
 
-module.exports = { handleModerationCommand, parseDuration, formatDuration, restoreTempBans };
+module.exports = { handleModerationCommand, parseDuration, formatDuration, restoreTempBans, buildInvokeVars };

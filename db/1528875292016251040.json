@@ -642,7 +642,7 @@
   },
   "users": {
     "1410668779347771402": {
-      "xp": 10630,
+      "xp": 11012,
       "level": 6,
       "balance": 0,
       "bank": 0,
@@ -862,7 +862,7 @@
       "requiredVoiceSecs": 20,
       "gwMsgCounts": {},
       "gwVoiceSecs": {
-        "1410668779347771402": 4388,
+        "1410668779347771402": 4456,
         "1371931756692897893": 3394,
         "820324513488699404": 61,
         "1420111568300937351": 1463,
@@ -920,28 +920,15 @@
     "1528875292016251040": {
       "1410668779347771402": {
         "daily": {
-          "2026-07-30": 63,
-          "2026-07-31": 190
+          "2026-07-31": 17
         },
         "weekly": {
-          "2026-07-27": 253
+          "2026-07-27": 17
         },
         "monthly": {
-          "2026-07": 253
+          "2026-07": 17
         },
-        "total": 253
-      },
-      "1371931756692897893": {
-        "daily": {
-          "2026-07-30": 13
-        },
-        "weekly": {
-          "2026-07-27": 13
-        },
-        "monthly": {
-          "2026-07": 13
-        },
-        "total": 13
+        "total": 17
       }
     }
   },
@@ -951,117 +938,20 @@
     "streamsEnabled": true
   },
   "topvcMessages": {
-    "voiceTimeMsgId": "1532490870790688801"
+    "voiceTimeMsgId": "1532865317422764265"
   },
   "vcStats": {
     "1528875292016251040": {
       "1410668779347771402": {
-        "totalMs": 13862400,
+        "totalMs": 95180,
         "daily": {
-          "2026-07-30": 8838186,
-          "2026-07-31": 5024214
+          "2026-07-31": 95180
         },
         "weekly": {
-          "2026-07-27": 13862400
+          "2026-07-27": 95180
         },
         "monthly": {
-          "2026-07": 13862400
-        },
-        "streamMs": 1710607,
-        "cameraMs": 165383,
-        "streamDaily": {
-          "2026-07-30": 1710607
-        },
-        "cameraDaily": {
-          "2026-07-30": 165383
-        },
-        "lastJoin": 1785462123022,
-        "lastStreamJoin": null,
-        "lastCameraJoin": null,
-        "inVc": true,
-        "streaming": false,
-        "cameraOn": false
-      },
-      "1371931756692897893": {
-        "totalMs": 3395818,
-        "daily": {
-          "2026-07-30": 3395818
-        },
-        "weekly": {
-          "2026-07-27": 3395818
-        },
-        "monthly": {
-          "2026-07": 3395818
-        },
-        "streamMs": 33593,
-        "cameraMs": 0,
-        "streamDaily": {
-          "2026-07-30": 33593
-        },
-        "cameraDaily": {},
-        "lastJoin": null,
-        "lastStreamJoin": null,
-        "lastCameraJoin": null,
-        "inVc": false,
-        "streaming": false,
-        "cameraOn": false
-      },
-      "1420111568300937351": {
-        "totalMs": 6023054,
-        "daily": {
-          "2026-07-30": 6023054
-        },
-        "weekly": {
-          "2026-07-27": 6023054
-        },
-        "monthly": {
-          "2026-07": 6023054
-        },
-        "streamMs": 55250,
-        "cameraMs": 0,
-        "streamDaily": {
-          "2026-07-30": 55250
-        },
-        "cameraDaily": {},
-        "lastJoin": 1785459571814,
-        "lastStreamJoin": null,
-        "lastCameraJoin": null,
-        "inVc": true,
-        "streaming": false,
-        "cameraOn": false
-      },
-      "820324513488699404": {
-        "totalMs": 61493,
-        "daily": {
-          "2026-07-30": 61493
-        },
-        "weekly": {
-          "2026-07-27": 61493
-        },
-        "monthly": {
-          "2026-07": 61493
-        },
-        "streamMs": 0,
-        "cameraMs": 0,
-        "streamDaily": {},
-        "cameraDaily": {},
-        "lastJoin": null,
-        "lastStreamJoin": null,
-        "lastCameraJoin": null,
-        "inVc": false,
-        "streaming": false,
-        "cameraOn": false
-      },
-      "1431621341760458813": {
-        "totalMs": 60462,
-        "daily": {
-          "2026-07-30": 60462
-        },
-        "weekly": {
-          "2026-07-27": 60462
-        },
-        "monthly": {
-          "2026-07": 60462
+          "2026-07": 95180
         },
         "streamMs": 0,
         "cameraMs": 0,

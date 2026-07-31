@@ -542,10 +542,24 @@ async function handleTopVcCommand(message, args) {
   ] });
 }
 
+async function handleTopVcClear(message) {
+  const { isAdmin } = require('./helpers');
+  if (!isAdmin(message.member)) {
+    return message.reply({ content: '❌ Only the server owner or bot admins can clear TOPVC data.', ephemeral: true });
+  }
+
+  const db = getGuildDb(message.guild.id);
+  db.set('vcStats', {});
+  db.set('topvcMessages', {});
+
+  return message.reply({ content: '✅ All TOPVC leaderboard data has been cleared for this server.' });
+}
+
 module.exports = {
   handleTopVcCommand,
   trackTopVcVoiceState,
   refreshTopVcLeaderboards,
   getOrCreateUserStats,
   validateVcState,
+  handleTopVcClear,
 };

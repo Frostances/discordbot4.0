@@ -82,10 +82,10 @@ const { handleGiveawayCommand, handleGiveawayButton,
         trackGiveawayVoice }                            = require('./modules/giveaways');
 const { hasDiscordPerm }                                = require('./modules/helpers');
 const { handleTopVcCommand, trackTopVcVoiceState,
-        refreshTopVcLeaderboards }                      = require('./modules/topvc');
+        refreshTopVcLeaderboards, handleTopVcClear }    = require('./modules/topvc');
 const { handleVoiceTimeStats, handleMessageStats,
         handleStreamTimeStats, handleCameraTimeStats,
-        trackMessage }                                   = require('./modules/stats');
+        trackMessage, handleStatsClear }                 = require('./modules/stats');
 const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
 const { handleCustomize } = require('./modules/customize');
 
@@ -1117,12 +1117,14 @@ client.on('messageCreate', async (message) => {
 
         // ── TOPVC ──
         if (command === 'topvc') return handleTopVcCommand(message, args);
+        if (command === 'topvcclear') return handleTopVcClear(message);
 
         // ── Stats ──
         if (command === 'voicetime') return handleVoiceTimeStats(message, args);
         if (command === 'messages') return handleMessageStats(message, args);
         if (command === 'streamtime') return handleStreamTimeStats(message, args);
         if (command === 'cameratime') return handleCameraTimeStats(message, args);
+        if (command === 'statsclear') return handleStatsClear(message);
 
         // ── VoiceMaster ──
         if (command === 'voicemaster' && args[0] === 'setup') {

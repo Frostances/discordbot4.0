@@ -3,6 +3,8 @@ const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js')
 const { getGuildDb } = require('./database');
 const { COLORS, base } = require('../utils/embeds');
 const { createCase, sendModLog, parseDuration, formatDuration } = require('./cases');
+const { buildInvokeVars, sendInvokeReply, formatTimeLeft } = require('./helpers');
+const { chunk, sendPaginated } = require('../utils/paginator');
 
 const JAIL_TIMERS = new Map(); // `guildId:userId` -> timer
 
@@ -193,7 +195,7 @@ function scheduleRelease(guild, userId, ms, client) {
 async function handleJail(ctx, args, client) {
   const { isStaffOrAdmin } = require('./helpers');
   if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
-  if (!isJailSetup(ctx.guild)) return ctx.reply({ content: '❌ The jail system is not set up. Use `.jail setup` to set it up.', ephemeral: true });
+  if (!isJailSetup(ctx.guild)) return ctx.reply({ content: '❌ The jail system is not set up. Use `.jail setup` or `.setupjail` to set it up.', ephemeral: true });
 
   const target = ctx.mentions?.members?.first();
   if (!target) return ctx.reply({ content: '❌ Mention a user.', ephemeral: true });
@@ -218,14 +220,12 @@ async function handleJail(ctx, args, client) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
     const vars = buildInvokeVars(ctx, target, reason, durationStr, c.id);
     await sendInvokeDm(target.user, ctx.guild.id, 'jail', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
     return sendInvokeReply(ctx, ctx.guild.id, 'jail', target, reason, durationStr, c.id);
   } catch {
     const embed = base(COLORS.error)
@@ -246,7 +246,7 @@ async function handleJail(ctx, args, client) {
 async function handleUnjail(ctx, args, client) {
   const { isStaffOrAdmin } = require('./helpers');
   if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
-  if (!isJailSetup(ctx.guild)) return ctx.reply({ content: '❌ The jail system is not set up. Use `.jail setup` to set it up.', ephemeral: true });
+  if (!isJailSetup(ctx.guild)) return ctx.reply({ content: '❌ The jail system is not set up. Use `.jail setup` or `.setupjail` to set it up.', ephemeral: true });
 
   const target = ctx.mentions?.members?.first() || ctx.mentions?.users?.first();
   if (!target) return ctx.reply({ content: '❌ Mention a user.', ephemeral: true });
@@ -258,14 +258,12 @@ async function handleUnjail(ctx, args, client) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
     const vars = buildInvokeVars(ctx, target, reason, null, null);
     await sendInvokeDm(target.user || target, ctx.guild.id, 'unjail', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
     return sendInvokeReply(ctx, ctx.guild.id, 'unjail', target, reason, null, null);
   } catch {
     const embed = base(COLORS.success).setTitle('🔓 Member Released from Jail')
@@ -282,16 +280,31 @@ async function handleUnjail(ctx, args, client) {
 async function handleJailList(ctx) {
   const { isStaffOrAdmin } = require('./helpers');
   if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
-  const jailed = getGuildDb(ctx.guild.id).get('jailed', {});
+
+  const db = getGuildDb(ctx.guild.id);
+  const jailed = db.get('jailed', {});
   const entries = Object.values(jailed);
-  if (!entries.length) return ctx.reply({ content: '✅ No members currently jailed.' });
 
-  const lines = entries.map(e => {
-    const exp = e.expires ? `Expires <t:${Math.floor(e.expires / 1000)}:R>` : 'Permanent';
-    return `<@${e.userId}> — ${e.reason} *(${exp})*`;
-  }).join('\n');
+  if (!entries.length) {
+    return ctx.reply({ content: '✅ No members currently jailed.' });
+  }
 
-  return ctx.reply({ embeds: [base(COLORS.primary).setTitle('🏛️ Jailed Members').setDescription(lines)] });
+  const lines = entries.map((e, i) => {
+    const member = ctx.guild.members.cache.get(e.userId);
+    const username = member?.user?.username || 'Unknown';
+    const left = e.expires ? formatTimeLeft(e.expires - Date.now()) : 'Permanent';
+    const mod = e.by ? `<@${e.by}>` : 'Unknown';
+    const reason = e.reason || 'No reason';
+    return `${i + 1}- ${username} - jailed (${left}) - mod: ${mod} - reason: ${reason}`;
+  });
+
+  const pages = chunk(lines, 5).map((page, idx) => ({
+    title: `🏛️ Jailed Members [${entries.length}]`,
+    description: page.join('\n'),
+    color: COLORS.primary,
+  }));
+
+  return sendPaginated(ctx.channel || ctx, pages, ctx.author?.id || ctx.user?.id);
 }
 
 async function handleJailSetup(ctx, args) {

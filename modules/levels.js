@@ -108,7 +108,7 @@ async function handleLevelsCommand(message, args, client) {
         if (args[1]?.toLowerCase() === 'rename') {
             if (!isStaffOrAdmin(message.member)) return message.reply('❌ No permission.');
             const title = args.slice(2).join(' ').trim();
-            if (!title) return message.reply('❌ Usage: `.levels leaderboard rename <title>`');
+            if (!title) return message.reply('❌ Usage: `.level leaderboard rename <title>`');
             cfg2.leaderboardTitle = title; db.set('levelsConfig', cfg2);
             return message.reply(`✅ Leaderboard title set to **${title}**.`);
         }
@@ -134,7 +134,7 @@ async function handleLevelsCommand(message, args, client) {
         return message.channel.send({ embeds: [new EmbedBuilder()
             .setTitle(lbTitle)
             .setDescription(desc || 'No data yet.')
-            .setFooter({ text: `Page ${page}/${pages} • Use .levels leaderboard <page> to navigate` })
+            .setFooter({ text: `Page ${page}/${pages} • Use .level leaderboard <page> to navigate` })
             .setColor('#FFD700').setTimestamp()] });
     }
 
@@ -169,7 +169,7 @@ async function handleLevelsCommand(message, args, client) {
     if (sub === 'setrate') {
         if (!isStaffOrAdmin(message.member)) return message.reply('❌ No permission.');
         const rate = parseFloat(args[1]);
-        if (isNaN(rate) || rate <= 0) return message.reply('❌ Usage: `.levels setrate <number>`');
+        if (isNaN(rate) || rate <= 0) return message.reply('❌ Usage: `.level setrate <number>`');
         const cfg = db.get('levelsConfig', {}); cfg.xpRate = rate; db.set('levelsConfig', cfg);
         return message.reply(`✅ XP rate set to **${rate}x**.`);
     }
@@ -182,7 +182,7 @@ async function handleLevelsCommand(message, args, client) {
                 { name: 'System Channel', value: lmc.channelId ? `<#${lmc.channelId}>` : 'Same channel as trigger', inline: true },
                 { name: 'Mode',           value: lmc.mode || cfg2.messageMode || 'channel', inline: true },
                 { name: 'Message Template', value: lmc.message || cfg2.levelMessage || '*(default)* 🎉 {user.mention} reached level **{level}**!' },
-            ).setColor('#5865F2').setFooter({ text: 'Edit with .levels message <template>  or  .levelupmsg message <template>' })] });
+            ).setColor('#5865F2').setFooter({ text: 'Edit with .level message <template>  or  .levelupmsg message <template>' })] });
     }
 
     if (sub === 'message') {
@@ -316,7 +316,7 @@ async function handleLevelsCommand(message, args, client) {
     }
 
     // setxp / removexp / setlevel (top-level commands, handled in index)
-    return message.reply('❌ Unknown subcommand. Use `.levels config`, `.levels leaderboard`, etc.');
+    return message.reply('❌ Unknown subcommand. Use `.level config`, `.level leaderboard`, etc.');
 }
 
 function buildProgressBar(current, max, length = 20) {

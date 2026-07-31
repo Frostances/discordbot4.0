@@ -876,7 +876,7 @@ const ALIASES = {
     // Config
     cfg: 'config', settings: 'config',
     // Levels
-    lvl: 'levels', rank: 'levels', sl: 'setlevel',
+    lvl: 'level', rank: 'level', sl: 'setlevel',
     // Misc
     tt: 'ticket', an: 'antinuke', ar: 'antiraid', am: 'automod',
     vm: 'voicemaster',
@@ -907,9 +907,9 @@ const MOD_COMMANDS = new Set([
     'kick','ban','unban','softban','hardban','tempban','unbanall','banlist','recentban',
     // timeout / mute
     'timeout','untimeout','timeoutlist',
-    'mute','unmute','imute','iunmute','rmute','runmute','setupmute',
+    'mute','unmute','imute','iunmute','rmute','runmute','setupmute','setupimute','setuprmute',
     // jail
-    'jail','unjail','jaillist',
+    'jail','unjail','jaillist','setupjail','jailed',
     // purge
     'purge',
     // channel
@@ -1035,7 +1035,7 @@ client.on('messageCreate', async (message) => {
         if (command === 'antiraid') return handleAntiRaidCommand(message, args);
 
         // ── Levels ──
-        if (command === 'levels') return handleLevelsCommand(message, args, client);
+        if (command === 'level') return handleLevelsCommand(message, args, client);
 
         if (command === 'setxp') {
             if (!isStaffOrAdmin(message.member)) return message.reply('❌ No permission.');
@@ -1353,7 +1353,7 @@ client.on('interactionCreate', async (interaction) => {
                 } catch (err) { return handleCommandError(interaction, err); }
             }
 
-            if (cmd === 'levels') {
+            if (cmd === 'level') {
                 const sub = interaction.options.getSubcommand();
                 if (sub === 'leaderboard') return handleLevelsCommand(interaction, ['leaderboard'], client);
                 if (sub === 'rank') {

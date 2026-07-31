@@ -343,14 +343,14 @@ async function handleMute(ctx, args, client) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
+    const { buildInvokeVars, sendInvokeReply } = require('./helpers');
     const vars = buildInvokeVars(ctx, target, reason, durationStr, c.id);
     await sendInvokeDm(target.user, ctx.guild.id, 'mute', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
+
     return sendInvokeReply(ctx, ctx.guild.id, 'mute', target, reason, durationStr, c.id);
   } catch {
     const embed = base(COLORS.error).setTitle('🔇 Member Muted')
@@ -381,14 +381,14 @@ async function handleUnmute(ctx, args, client) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
+    const { buildInvokeVars, sendInvokeReply } = require('./helpers');
     const vars = buildInvokeVars(ctx, target, reason, null, null);
     await sendInvokeDm(target.user, ctx.guild.id, 'unmute', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
+
     return sendInvokeReply(ctx, ctx.guild.id, 'unmute', target, reason, null, null);
   } catch {
     const embed = base(COLORS.success).setTitle('🔊 Member Unmuted')
@@ -422,14 +422,14 @@ async function handleIMute(ctx, args) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
+    const { buildInvokeVars, sendInvokeReply } = require('./helpers');
     const vars = buildInvokeVars(ctx, target, reason, durationStr, c.id);
     await sendInvokeDm(target.user, ctx.guild.id, 'imute', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
+
     return sendInvokeReply(ctx, ctx.guild.id, 'imute', target, reason, durationStr, c.id);
   } catch {
     return ctx.reply({ content: `🔇 Image/attachment mute applied to **${target.user.username}**${durationStr ? ` for **${durationStr}**` : ''}.` });
@@ -452,14 +452,14 @@ async function handleIUnmute(ctx, args) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
+    const { buildInvokeVars, sendInvokeReply } = require('./helpers');
     const vars = buildInvokeVars(ctx, target, reason, null, null);
     await sendInvokeDm(target.user, ctx.guild.id, 'iunmute', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
+
     return sendInvokeReply(ctx, ctx.guild.id, 'iunmute', target, reason, null, null);
   } catch {
     return ctx.reply({ content: `🔊 Image mute removed from **${target.user.username}**.` });
@@ -486,14 +486,14 @@ async function handleRMute(ctx, args) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
+    const { buildInvokeVars, sendInvokeReply } = require('./helpers');
     const vars = buildInvokeVars(ctx, target, reason, durationStr, c.id);
     await sendInvokeDm(target.user, ctx.guild.id, 'rmute', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
+
     return sendInvokeReply(ctx, ctx.guild.id, 'rmute', target, reason, durationStr, c.id);
   } catch {
     return ctx.reply({ content: `🔇 Reaction mute applied to **${target.user.username}**${durationStr ? ` for **${durationStr}**` : ''}.` });
@@ -516,14 +516,14 @@ async function handleRUnmute(ctx, args) {
   // Invoke DM
   try {
     const { sendInvokeDm } = require('./invoke');
-    const { buildInvokeVars } = require('./moderation');
+    const { buildInvokeVars, sendInvokeReply } = require('./helpers');
     const vars = buildInvokeVars(ctx, target, reason, null, null);
     await sendInvokeDm(target.user, ctx.guild.id, 'runmute', vars);
   } catch {}
 
   // Invoke reply
   try {
-    const { sendInvokeReply } = require('./moderation');
+
     return sendInvokeReply(ctx, ctx.guild.id, 'runmute', target, reason, null, null);
   } catch {
     return ctx.reply({ content: `🔊 Reaction mute removed from **${target.user.username}**.` });

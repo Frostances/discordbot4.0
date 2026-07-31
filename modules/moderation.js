@@ -59,51 +59,7 @@ async function askConfirmation(ctx, embed) {
 
 // ──────────────────────────────────────────────────────────
 // INVOKE HELPER — sends custom reply or fallback
-// ──────────────────────────────────────────────────────────
-function buildInvokeVars(ctx, target, reason, duration, caseId) {
-  const authorId = ctx.author?.id || ctx.user?.id;
-  const guild = ctx.guild;
-  const modMember = ctx.member;
 
-  return {
-    targetMention: target ? `<@${target.id}>` : '',
-    targetName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
-    targetId: target ? target.id : '',
-    targetAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
-    userMention: target ? `<@${target.id}>` : '',
-    userName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
-    userId: target ? target.id : '',
-    userAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
-    modMention: `<@${authorId}>`,
-    modName: modMember?.user?.username || modMember?.username || 'Unknown',
-    modId: authorId,
-    modIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
-    moderatorMention: `<@${authorId}>`,
-    moderatorName: modMember?.user?.username || modMember?.username || 'Unknown',
-    moderatorId: authorId,
-    moderatorIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
-    guildName: guild?.name || '',
-    guildId: guild?.id || '',
-    guildIcon: guild?.iconURL?.() || '',
-    reason: reason || 'No reason provided',
-    caseId: caseId ? '#' + caseId : '',
-    duration: duration || '',
-  };
-}
-
-function sendInvokeReply(ctx, guildId, command, target, reason, duration, caseId) {
-  try {
-    const { getInvokeReply } = require('./invoke');
-    const vars = buildInvokeVars(ctx, target, reason, duration, caseId);
-    const invMsg = getInvokeReply(guildId, command, vars);
-    if (invMsg && (invMsg.content || invMsg.embeds?.length)) {
-      if (ctx.editReply) return ctx.editReply(invMsg);
-      return ctx.reply(invMsg);
-    }
-  } catch { /* invoke module not loaded */ }
-  if (ctx.editReply) return ctx.editReply({ content: '👍', embeds: [], components: [] });
-  return ctx.reply('👍');
-}
 
 // ──────────────────────────────────────────────────────────
 // TIME LEFT FORMATTER
@@ -131,25 +87,22 @@ async function handleTimeoutList(ctx, client) {
   const db = getGuildDb(guild.id);
   const cases = db.get('cases', []);
 
-  // Get config role IDs
   const muteCfg = db.get('muteConfig', {});
   const imuteCfg = db.get('imuteConfig', {});
   const rmuteCfg = db.get('rmuteConfig', {});
-  const jailCfg = db.get('jailConfig', {});
 
   const mutedRoleId = muteCfg.roleId;
   const imutedRoleId = imuteCfg.roleId;
   const rmutedRoleId = rmuteCfg.roleId;
-  const jailedRoleId = jailCfg.roleId;
 
-  const members = await guild.members.fetch();
   const entries = [];
 
-  for (const member of members.values()) {
+  for (const member of guild.members.cache.values()) {
     if (member.user.bot) continue;
 
     const punishments = [];
     let latestCase = null;
+    let allReasons = [];
 
     // Check muted role
     if (mutedRoleId && member.roles.cache.has(mutedRoleId)) {
@@ -157,7 +110,10 @@ async function handleTimeoutList(ctx, client) {
       const expires = c?.expires;
       const left = expires ? formatTimeLeft(expires - Date.now()) : 'Permanent';
       punishments.push(`muted (${left})`);
-      if (c && (!latestCase || c.timestamp > latestCase.timestamp)) latestCase = c;
+      if (c) {
+        if (!latestCase || c.timestamp > latestCase.timestamp) latestCase = c;
+        allReasons.push(`muted: ${c.reason || 'No reason'}`);
+      }
     }
 
     // Check imuted role
@@ -166,7 +122,10 @@ async function handleTimeoutList(ctx, client) {
       const expires = c?.expires;
       const left = expires ? formatTimeLeft(expires - Date.now()) : 'Permanent';
       punishments.push(`imuted (${left})`);
-      if (c && (!latestCase || c.timestamp > latestCase.timestamp)) latestCase = c;
+      if (c) {
+        if (!latestCase || c.timestamp > latestCase.timestamp) latestCase = c;
+        allReasons.push(`imuted: ${c.reason || 'No reason'}`);
+      }
     }
 
     // Check rmuted role
@@ -175,16 +134,10 @@ async function handleTimeoutList(ctx, client) {
       const expires = c?.expires;
       const left = expires ? formatTimeLeft(expires - Date.now()) : 'Permanent';
       punishments.push(`rmuted (${left})`);
-      if (c && (!latestCase || c.timestamp > latestCase.timestamp)) latestCase = c;
-    }
-
-    // Check jailed role
-    if (jailedRoleId && member.roles.cache.has(jailedRoleId)) {
-      const c = [...cases].reverse().find(c => c.targetId === member.id && c.type === 'jail' && c.status !== 'pardoned');
-      const expires = c?.expires;
-      const left = expires ? formatTimeLeft(expires - Date.now()) : 'Permanent';
-      punishments.push(`jailed (${left})`);
-      if (c && (!latestCase || c.timestamp > latestCase.timestamp)) latestCase = c;
+      if (c) {
+        if (!latestCase || c.timestamp > latestCase.timestamp) latestCase = c;
+        allReasons.push(`rmuted: ${c.reason || 'No reason'}`);
+      }
     }
 
     // Check Discord timeout
@@ -192,28 +145,32 @@ async function handleTimeoutList(ctx, client) {
       const c = [...cases].reverse().find(c => c.targetId === member.id && c.type === 'timeout' && c.status !== 'pardoned');
       const left = formatTimeLeft(member.communicationDisabledUntil - Date.now());
       punishments.push(`timeout (${left})`);
-      if (c && (!latestCase || c.timestamp > latestCase.timestamp)) latestCase = c;
+      if (c) {
+        if (!latestCase || c.timestamp > latestCase.timestamp) latestCase = c;
+        allReasons.push(`timeout: ${c.reason || 'No reason'}`);
+      }
     }
 
     if (punishments.length) {
       const modMention = latestCase ? `<@${latestCase.executorId}>` : 'Unknown';
+      const reasonText = allReasons.length ? allReasons.join(' | ') : 'No reason';
       entries.push({
         user: member.user,
         punishments: punishments.join(' , '),
         mod: modMention,
+        reason: reasonText,
       });
     }
   }
 
   if (!entries.length) {
-    return ctx.reply({ content: '✅ No members currently muted/timed out/jailed.' });
+    return ctx.reply({ content: '✅ No members currently muted/timed out.' });
   }
 
-  // Paginate
   const pages = chunk(entries, 5).map((page, idx) => {
     const lines = page.map((e, i) => {
       const globalIdx = idx * 5 + i + 1;
-      return `${globalIdx}- ${e.user.username} - ${e.punishments} - mod: ${e.mod}`;
+      return `${globalIdx}- ${e.user.username} - ${e.punishments} - mod: ${e.mod} - reason: ${e.reason}`;
     }).join('\n');
     return {
       title: `🔇 Muted/Timed Out Members [${entries.length}]`,
@@ -225,9 +182,7 @@ async function handleTimeoutList(ctx, client) {
   return sendPaginated(ctx.channel || ctx, pages, ctx.author?.id || ctx.user?.id);
 }
 
-// ──────────────────────────────────────────────────────────
-// MAIN DISPATCH
-// ──────────────────────────────────────────────────────────
+
 async function handleModerationCommand(ctx, command, args, client) {
   const { isStaffOrAdmin, isAdmin, checkRestriction, hasDiscordPerm } = require('./helpers');
 
@@ -697,6 +652,11 @@ async function handleModerationCommand(ctx, command, args, client) {
   }
   if (command === 'unjail') return handleUnjail(ctx, args, client);
   if (command === 'jaillist') return handleJailList(ctx);
+  if (command === 'setupjail') return handleJailSetup(ctx, args);
+  if (command === 'jailed') {
+    if (args[0] === 'list') return handleJailList(ctx);
+    return ctx.reply({ content: '❌ Usage: `.jailed list`' });
+  }
 
   // ════════════════════════════════════════════
   // ROLE MANAGEMENT
@@ -839,4 +799,4 @@ async function restoreTempBans(client) {
   logger.info('TEMPBAN', `Restored ${restored} active tempban(s); processed ${expired} overdue`);
 }
 
-module.exports = { handleModerationCommand, parseDuration, formatDuration, restoreTempBans, buildInvokeVars };
+module.exports = { handleModerationCommand, parseDuration, formatDuration, restoreTempBans };

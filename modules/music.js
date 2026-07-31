@@ -132,7 +132,7 @@ async function cmdPlay(ctx, args) {
     // Get or create player
     let player = getPlayer(guildId);
     if (!player) {
-        player = await shoukaku.joinVoiceChannel({
+        player = await getShoukaku().joinVoiceChannel({
             guildId: guildId,
             channelId: voiceChannel.id,
             shardId: 0,
@@ -154,7 +154,7 @@ async function cmdPlay(ctx, args) {
     setQueue(guildId, queue);
 
     // If nothing is playing, start playing
-    if (player.state !== 1) { // 1 = playing
+    if (!player.playing && !player.paused) {
         queue.current = playNext ? queue.current : (queue.tracks.length - tracks.length);
         const trackToPlay = queue.tracks[queue.current];
         await player.playTrack({ track: { encoded: trackToPlay.encoded } });
@@ -348,7 +348,7 @@ async function cmdFastForward(ctx, args) {
     const guildId = ctx.guild.id;
     const player = getPlayer(guildId);
 
-    if (!player || player.state !== 1) {
+    if (!player || !player.playing) {
         return sendReply(ctx, { embeds: [errorEmbed('Nothing is currently playing.')] });
     }
 
@@ -388,7 +388,7 @@ async function cmdRewind(ctx, args) {
     const guildId = ctx.guild.id;
     const player = getPlayer(guildId);
 
-    if (!player || player.state !== 1) {
+    if (!player || !player.playing) {
         return sendReply(ctx, { embeds: [errorEmbed('Nothing is currently playing.')] });
     }
 
@@ -433,8 +433,8 @@ async function cmdVolume(ctx, args) {
 
     const volStr = args[0];
     if (!volStr) {
-        const currentVol = (player.filters?.volume || 1.0) * 100;
-        return sendReply(ctx, { embeds: [musicEmbed('🔊 Volume', `Current volume: **${Math.round(currentVol)}%**`)] });
+        const currentVol = player.volume || 100;
+        return sendReply(ctx, { embeds: [musicEmbed('🔊 Volume', `Current volume: **${currentVol}%**`)] });
     }
 
     const vol = parseInt(volStr);
@@ -443,8 +443,6 @@ async function cmdVolume(ctx, args) {
     }
 
     await player.setGlobalVolume(vol);
-    // Also update filters volume for compatibility
-    await player.setFilters({ volume: vol / 100 });
 
     return sendReply(ctx, { embeds: [successEmbed(`Volume set to **${vol}%** 🔊`)] });
 }
@@ -459,7 +457,7 @@ async function cmdPause(ctx) {
     const guildId = ctx.guild.id;
     const player = getPlayer(guildId);
 
-    if (!player || player.state !== 1) {
+    if (!player || !player.playing) {
         return sendReply(ctx, { embeds: [errorEmbed('Nothing is currently playing.')] });
     }
 
@@ -528,7 +526,7 @@ async function cmdShuffle(ctx) {
     setQueue(guildId, queue);
 
     const player = getPlayer(guildId);
-    if (player && player.state === 1) {
+    if (player && player.playing) {
         // Restart from beginning of shuffled queue
         const track = queue.tracks[0];
         await player.playTrack({ track: { encoded: track.encoded } });
@@ -682,7 +680,7 @@ async function cmdNowPlaying(ctx) {
     const embed = musicEmbed('🎵 Now Playing', 
         `${formatTrack(track)}\n\n` +
         `\`${formatDuration(position)}\` ${bar} \`${formatDuration(duration)}\`\n\n` +
-        `Volume: **${Math.round((player.filters?.volume || 1.0) * 100)}%** | ` +
+        `Volume: **${player.volume || 100}%** | ` +
         `Loop: **${queue.loop}**`
     ).setThumbnail(track.info.artworkUrl || null);
 

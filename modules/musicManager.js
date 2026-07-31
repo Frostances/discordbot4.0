@@ -15,8 +15,6 @@ const NODES = [
         name: 'LocalNode',
         url: process.env.LAVALINK_URL || 'localhost:2333',
         auth: process.env.LAVALINK_PASSWORD || 'your-secure-password',
-        secure: false,
-        group: 'main',
     },
 ];
 
@@ -38,18 +36,22 @@ function initMusicManager(client) {
 
     shoukaku.on('error', (name, error) => {
         logger.error('LAVALINK', `Node ${name} error:`, error);
+        console.log('[DEBUG] Node error:', name, error);
     });
 
     shoukaku.on('close', (name, code, reason) => {
         logger.warn('LAVALINK', `Node ${name} closed: ${code} ${reason}`);
+        console.log('[DEBUG] Node closed:', name, code, reason);
     });
 
     shoukaku.on('disconnect', (name, players, moved) => {
         logger.warn('LAVALINK', `Node ${name} disconnected. Players: ${players.length}, Moved: ${moved}`);
+        console.log('[DEBUG] Node disconnected:', name);
     });
 
     shoukaku.on('ready', (name, reconnected) => {
         logger.info('LAVALINK', `Node ${name} ready${reconnected ? ' (reconnected)' : ''}`);
+        console.log('[DEBUG] Node ready:', name);
     });
 
     logger.info('MUSIC', 'Music manager initialized');
@@ -385,14 +387,28 @@ async function resolveQuery(node, query) {
     }
 }
 
-// Get the best available node
+// ══════════════════════════════════════════════════════════
+// GET BEST NODE (FIXED)
+// ══════════════════════════════════════════════════════════
 function getBestNode() {
     const shoukaku = getShoukaku();
-    if (!shoukaku) return null;
-    // Get the first connected node
-    for (const node of shoukaku.nodes.values()) {
-        if (node.state === 2) return node; // 2 = connected
+    if (!shoukaku) {
+        console.log('[DEBUG] Shoukaku is null!');
+        return null;
     }
+
+    console.log('[DEBUG] Shoukaku nodes count:', shoukaku.nodes.size);
+
+    for (const [name, node] of shoukaku.nodes) {
+        console.log(`[DEBUG] Node "${name}" state:`, node.state);
+    }
+
+    // Return first available node
+    for (const node of shoukaku.nodes.values()) {
+        return node;
+    }
+
+    console.log('[DEBUG] No nodes found in Shoukaku');
     return null;
 }
 

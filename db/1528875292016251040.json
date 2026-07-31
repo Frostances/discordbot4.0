@@ -75,6 +75,23 @@
       "status": "active",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 5,
+      "type": "kick",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "No reason provided",
+      "timestamp": 1785507324008,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -115,7 +132,7 @@
   },
   "users": {
     "1410668779347771402": {
-      "xp": 5977,
+      "xp": 7024,
       "level": 5,
       "balance": 0,
       "bank": 0,
@@ -394,15 +411,15 @@
       "1410668779347771402": {
         "daily": {
           "2026-07-30": 63,
-          "2026-07-31": 28
+          "2026-07-31": 51
         },
         "weekly": {
-          "2026-07-27": 91
+          "2026-07-27": 114
         },
         "monthly": {
-          "2026-07": 91
+          "2026-07": 114
         },
-        "total": 91
+        "total": 114
       },
       "1371931756692897893": {
         "daily": {
@@ -556,7 +573,16 @@
   },
   "invokeMessages": {
     "kick": {
-      "dm": "{embed}$v{title: Kicked :wh_exclaim: }$v{field: **By** && {moderator.mention}inline}$v{field: **Reason** && {reason}inline}$v{description: \n**Server information**\n__**Guild id:**__\n:staff: `{guild.id}`\n__**Guild name:**__\n:staff: **{guild.name}**}$v{author: {user.name} && {guild.icon}$v{thumbnail: {user.avatar}$v{footer: Dm a staff member if this is a false punishment}"
+      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Kicked\n<:idksillydraw:1532735310050496635> You've been kicked in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
+    },
+    "ban": {
+      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Banned\n<:idksillydraw:1532735310050496635> You've been banned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Contact Mod to Appeal inline}$v{footer: --------------------------------------------------------------}$v{thumbnail: {user.avatar}}"
     }
+  },
+  "roleBackups": {
+    "1278713831345881170": [
+      "1528875292100132962",
+      "1528875292100132957"
+    ]
   }
 }

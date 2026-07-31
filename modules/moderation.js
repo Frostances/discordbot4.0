@@ -60,48 +60,48 @@ async function askConfirmation(ctx, embed) {
 // INVOKE HELPER — sends custom reply or fallback
 // ──────────────────────────────────────────────────────────
 function buildInvokeVars(ctx, target, reason, duration, caseId) {
-  const authorId = ctx.author?.id || ctx.user?.id;
-  const guild = ctx.guild;
-  const modMember = ctx.member;
+ const authorId = ctx.author?.id || ctx.user?.id;
+ const guild = ctx.guild;
+ const modMember = ctx.member;
 
-  return {
-      targetMention: target ? `<@${target.id}>` : '',
-      targetName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
-      targetId: target ? target.id : '',
-      targetAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
-      userMention: target ? `<@${target.id}>` : '',
-      userName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
-      userId: target ? target.id : '',
-      userAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
-      modMention: `<@${authorId}>`,
-      modName: modMember?.user?.username || modMember?.username || 'Unknown',
-      modId: authorId,
-      modIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
-      moderatorMention: `<@${authorId}>`,
-      moderatorName: modMember?.user?.username || modMember?.username || 'Unknown',
-      moderatorId: authorId,
-      moderatorIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
-      guildName: guild?.name || '',
-      guildId: guild?.id || '',
-      guildIcon: guild?.iconURL?.() || '',
-      reason: reason || 'No reason provided',
-      caseId: caseId ? '#' + caseId : '',
-      duration: duration || '',
-  };
+ return {
+ targetMention: target ? `<@${target.id}>` : '',
+ targetName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
+ targetId: target ? target.id : '',
+ targetAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
+ userMention: target ? `<@${target.id}>` : '',
+ userName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
+ userId: target ? target.id : '',
+ userAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
+ modMention: `<@${authorId}>`,
+ modName: modMember?.user?.username || modMember?.username || 'Unknown',
+ modId: authorId,
+ modIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
+ moderatorMention: `<@${authorId}>`,
+ moderatorName: modMember?.user?.username || modMember?.username || 'Unknown',
+ moderatorId: authorId,
+ moderatorIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
+ guildName: guild?.name || '',
+ guildId: guild?.id || '',
+ guildIcon: guild?.iconURL?.() || '',
+ reason: reason || 'No reason provided',
+ caseId: caseId ? '#' + caseId : '',
+ duration: duration || '',
+ };
 }
 
 function sendInvokeReply(ctx, guildId, command, target, reason, duration, caseId) {
-  try {
-      const { getInvokeReply } = require('./invoke');
-      const vars = buildInvokeVars(ctx, target, reason, duration, caseId);
-      const invMsg = getInvokeReply(guildId, command, vars);
-      if (invMsg && (invMsg.content || invMsg.embeds?.length)) {
-          if (ctx.editReply) return ctx.editReply(invMsg);
-          return ctx.reply(invMsg);
-      }
-  } catch { /* invoke module not loaded */ }
-  if (ctx.editReply) return ctx.editReply({ content: '👍', embeds: [], components: [] });
-  return ctx.reply('👍');
+ try {
+ const { getInvokeReply } = require('./invoke');
+ const vars = buildInvokeVars(ctx, target, reason, duration, caseId);
+ const invMsg = getInvokeReply(guildId, command, vars);
+ if (invMsg && (invMsg.content || invMsg.embeds?.length)) {
+ if (ctx.editReply) return ctx.editReply(invMsg);
+ return ctx.reply(invMsg);
+ }
+ } catch { /* invoke module not loaded */ }
+ if (ctx.editReply) return ctx.editReply({ content: '👍', embeds: [], components: [] });
+ return ctx.reply('👍');
 }
 
 // ──────────────────────────────────────────────────────────
@@ -143,11 +143,8 @@ async function handleModerationCommand(ctx, command, args, client) {
 
  try {
  const { sendInvokeDm } = require('./invoke');
- await sendInvokeDm(target.user, guild.id, 'kick', {
- targetMention: `<@${target.id}>`, targetName: target.user.username, targetId: target.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ const vars = buildInvokeVars(ctx, target, reason, null, null);
+ await sendInvokeDm(target.user, guild.id, 'kick', vars);
  await target.kick(reason);
  const c = createCase(guild.id, { type: 'kick', targetId: target.id, executorId: authorId, reason });
  const logEmbed = base(COLORS.error).setTitle('👢 Member Kicked')
@@ -158,11 +155,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '🏷️ Case', value: `#${c.id}`, inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'kick', {
- targetMention: `<@${target.id}>`, targetName: target.user.username, targetId: target.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'kick', target, reason, null, c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed to kick: ${err.message}`, ephemeral: true }); }
  }
 
@@ -196,11 +189,8 @@ async function handleModerationCommand(ctx, command, args, client) {
 
  try {
  const { sendInvokeDm } = require('./invoke');
- await sendInvokeDm(targetUser, guild.id, 'ban', {
- targetMention: `<@${targetUser.id}>`, targetName: targetUser.username, targetId: targetUser.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ const vars = buildInvokeVars(ctx, targetUser, reason, null, null);
+ await sendInvokeDm(targetUser, guild.id, 'ban', vars);
  await guild.bans.create(targetUser.id, { reason, deleteMessageSeconds: 0 });
  const c = createCase(guild.id, { type: 'ban', targetId: targetUser.id, executorId: authorId, reason });
  const logEmbed = base(COLORS.error).setTitle('🔨 Member Banned')
@@ -211,11 +201,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '🏷️ Case', value: `#${c.id}`, inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'ban', {
- targetMention: `<@${targetUser.id}>`, targetName: targetUser.username, targetId: targetUser.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'ban', targetUser, reason, null, c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed to ban: ${err.message}`, ephemeral: true }); }
  }
 
@@ -229,11 +215,8 @@ async function handleModerationCommand(ctx, command, args, client) {
  const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim() || 'Softban — message history cleared';
  try {
  const { sendInvokeDm } = require('./invoke');
- await sendInvokeDm(target.user, guild.id, 'softban', {
- targetMention: `<@${target.id}>`, targetName: target.user.username, targetId: target.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ const vars = buildInvokeVars(ctx, target, reason, null, null);
+ await sendInvokeDm(target.user, guild.id, 'softban', vars);
  await target.ban({ deleteMessageSeconds: 604800, reason });
  await guild.bans.remove(target.id, 'Softban — immediately unbanned');
  const c = createCase(guild.id, { type: 'softban', targetId: target.id, executorId: authorId, reason });
@@ -245,10 +228,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '🏷️ Case', value: `#${c.id}`, inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'softban', {
- targetName: target.user.username, targetId: target.id, targetMention: `<@${target.id}>`,
- modMention: `<@${authorId}>`, reason, guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'softban', target, reason, null, c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed: ${err.message}` }); }
  }
 
@@ -276,11 +256,8 @@ async function handleModerationCommand(ctx, command, args, client) {
 
  try {
  const { sendInvokeDm } = require('./invoke');
- await sendInvokeDm(targetUser, guild.id, 'hardban', {
- targetMention: `<@${targetUser.id}>`, targetName: targetUser.username, targetId: targetUser.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ const vars = buildInvokeVars(ctx, targetUser, reason, null, null);
+ await sendInvokeDm(targetUser, guild.id, 'hardban', vars);
  await guild.bans.create(targetUser.id, { deleteMessageSeconds: 604800, reason: `HARDBAN: ${reason}` });
  const hardbans = db.get('hardbans', []);
  if (!hardbans.includes(targetUser.id)) { hardbans.push(targetUser.id); db.set('hardbans', hardbans); }
@@ -294,14 +271,9 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '⚠️ Info', value: 'Hardbanned — cannot be unbanned without admin override' },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'hardban', {
- targetName: targetUser.username, targetId: targetUser.id, targetMention: `<@${targetUser.id}>`,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'hardban', targetUser, reason, null, c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed: ${err.message}` }); }
  }
-
 
  // ════════════════════════════════════════════
  // TEMPBAN
@@ -314,17 +286,14 @@ async function handleModerationCommand(ctx, command, args, client) {
  const cleanArgs = args.filter(a => !a.startsWith('<@'));
  const durStr = cleanArgs[0];
  const duration = parseDuration(durStr);
- if (!duration) return ctx.reply({ content: '❌ Usage: `.tempban @user <duration> [reason]`\nTime: `10m` `2h` `7d`', ephemeral: true });
+ if (!duration) return ctx.reply({ content: '❌ Usage: `.tempban @user <time> [reason]`\nTime: `10m` `2h` `7d`', ephemeral: true });
 
  const reason = cleanArgs.slice(1).join(' ') || 'Temporary ban';
  const expires = Date.now() + duration;
  try {
  const { sendInvokeDm } = require('./invoke');
- await sendInvokeDm(target.user, guild.id, 'tempban', {
- targetMention: `<@${target.id}>`, targetName: target.user.username, targetId: target.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, duration: formatDuration(duration), guildName: guild.name, guildId: guild.id,
- });
+ const vars = buildInvokeVars(ctx, target, reason, formatDuration(duration), null);
+ await sendInvokeDm(target.user, guild.id, 'tempban', vars);
  await target.ban({ reason: `TEMPBAN [${durStr}]: ${reason}` });
  const c = createCase(guild.id, { type: 'tempban', targetId: target.id, executorId: authorId, reason, duration: formatDuration(duration), expires });
 
@@ -349,11 +318,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '🏷️ Case', value: `#${c.id}`, inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'tempban', {
- targetName: target.user.username, targetId: target.id, targetMention: `<@${target.id}>`,
- modMention: `<@${authorId}>`, reason, duration: formatDuration(duration),
- guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'tempban', target, reason, formatDuration(duration), c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed: ${err.message}` }); }
  }
 
@@ -383,10 +348,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '🏷️ Case', value: `#${c.id}`, inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'unban', {
- targetName: ban.user.username, targetId: id, targetMention: `<@${id}>`,
- modMention: `<@${authorId}>`, reason, guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'unban', ban.user, reason, null, c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed: ${err.message}` }); }
  }
 
@@ -459,17 +421,14 @@ async function handleModerationCommand(ctx, command, args, client) {
  const cleanArgs = args.filter(a => !a.startsWith('<@'));
  const durStr = cleanArgs[0] || '10m';
  const duration = parseDuration(durStr);
- if (!duration) return ctx.reply({ content: '❌ Usage: `.timeout @user <duration> [reason]`\nTime: `1m` `1h` `1d`', ephemeral: true });
+ if (!duration) return ctx.reply({ content: '❌ Usage: `.timeout @user <time> [reason]`\nTime: `1m` `1h` `1d`', ephemeral: true });
  if (duration > 28 * 24 * 60 * 60 * 1000) return ctx.reply({ content: '❌ Max timeout is 28 days.', ephemeral: true });
 
  const reason = cleanArgs.slice(1).join(' ') || 'No reason provided';
  try {
  const { sendInvokeDm } = require('./invoke');
- await sendInvokeDm(target.user, guild.id, 'timeout', {
- targetMention: `<@${target.id}>`, targetName: target.user.username, targetId: target.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, duration: formatDuration(duration), guildName: guild.name, guildId: guild.id,
- });
+ const vars = buildInvokeVars(ctx, target, reason, formatDuration(duration), null);
+ await sendInvokeDm(target.user, guild.id, 'timeout', vars);
  await target.timeout(duration, reason);
  const c = createCase(guild.id, { type: 'timeout', targetId: target.id, executorId: authorId, reason, duration: formatDuration(duration), expires: Date.now() + duration });
  const logEmbed = base(COLORS.warning).setTitle('🔇 Member Timed Out')
@@ -482,11 +441,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '🏷️ Case', value: `#${c.id}`, inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'timeout', {
- targetName: target.user.username, targetId: target.id, targetMention: `<@${target.id}>`,
- modMention: `<@${authorId}>`, reason, duration: formatDuration(duration),
- guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'timeout', target, reason, formatDuration(duration), c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed: ${err.message}` }); }
  }
 
@@ -509,10 +464,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '🏷️ Case', value: `#${c.id}`, inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'untimeout', {
- targetName: target.user.username, targetId: target.id, targetMention: `<@${target.id}>`,
- modMention: `<@${authorId}>`, reason, guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'untimeout', target, reason, null, c.id);
  } catch (err) { return ctx.reply({ content: `❌ Failed: ${err.message}` }); }
  }
 
@@ -524,7 +476,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  const members = await guild.members.fetch();
  const timed = [...members.values()].filter(m => m.communicationDisabledUntil && m.communicationDisabledUntil > new Date());
  if (!timed.length) return ctx.reply({ content: '✅ No members currently timed out.' });
- const lines = timed.map(m => `${m.user.tag} — expires <t:${Math.floor(m.communicationDisabledUntil.getTime() / 1000)}:R>`).join('\n');
+ const lines = timed.map(m => `${m.user.tag} — expires <t:${Math.floor(m.communicationDisabledUntilTimestamp / 1000)}:R>`).join('\n');
  return ctx.reply({ embeds: [base(COLORS.warning).setTitle(`🔇 Timed-Out Members [${timed.length}]`).setDescription(lines)] });
  }
 
@@ -544,11 +496,8 @@ async function handleModerationCommand(ctx, command, args, client) {
  // DM the user
  try {
  const { sendInvokeDm } = require('./invoke');
- await sendInvokeDm(target.user, guild.id, 'warn', {
- targetMention: `<@${target.id}>`, targetName: target.user.username, targetId: target.id,
- modMention: `<@${authorId}>`, modName: ctx.member?.user?.username ?? authorId,
- reason, guildName: guild.name, guildId: guild.id,
- });
+ const vars = buildInvokeVars(ctx, target, reason, null, null);
+ await sendInvokeDm(target.user, guild.id, 'warn', vars);
  } catch {}
 
  // Warn escalation
@@ -569,10 +518,7 @@ async function handleModerationCommand(ctx, command, args, client) {
  { name: '⚠️ Total Warnings', value: total.toString(), inline: true },
  );
  await sendModLog(guild, logEmbed);
- return sendInvokeReply(ctx, guild.id, 'warn', {
- targetName: target.user.username, targetId: target.id, targetMention: `<@${target.id}>`,
- modMention: `<@${authorId}>`, reason, guildName: guild.name, guildId: guild.id,
- });
+ return sendInvokeReply(ctx, guild.id, 'warn', target, reason, null, c.id);
  }
 
  // ════════════════════════════════════════════

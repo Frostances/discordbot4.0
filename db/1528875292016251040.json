@@ -143,6 +143,108 @@
       "status": "active",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 9,
+      "type": "mute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "No reason provided",
+      "timestamp": 1785523566578,
+      "guildId": "1528875292016251040",
+      "duration": "10s",
+      "expires": 1785523576577,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 10,
+      "type": "unmute",
+      "targetId": "1278713831345881170",
+      "executorId": "1528881379868152020",
+      "reason": "Auto-unmuted (time expired)",
+      "timestamp": 1785523576734,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 11,
+      "type": "mute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "bad boy",
+      "timestamp": 1785523665980,
+      "guildId": "1528875292016251040",
+      "duration": "20s",
+      "expires": 1785523685980,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 12,
+      "type": "unmute",
+      "targetId": "1278713831345881170",
+      "executorId": "1528881379868152020",
+      "reason": "Auto-unmuted (time expired)",
+      "timestamp": 1785523686130,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 13,
+      "type": "mute",
+      "targetId": "1278713831345881170",
+      "executorId": "1410668779347771402",
+      "reason": "bad boy",
+      "timestamp": 1785523712087,
+      "guildId": "1528875292016251040",
+      "duration": "20s",
+      "expires": 1785523732086,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 14,
+      "type": "unmute",
+      "targetId": "1278713831345881170",
+      "executorId": "1528881379868152020",
+      "reason": "Auto-unmuted (time expired)",
+      "timestamp": 1785523732339,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -183,7 +285,7 @@
   },
   "users": {
     "1410668779347771402": {
-      "xp": 7830,
+      "xp": 8454,
       "level": 5,
       "balance": 0,
       "bank": 0,
@@ -462,15 +564,15 @@
       "1410668779347771402": {
         "daily": {
           "2026-07-30": 63,
-          "2026-07-31": 78
+          "2026-07-31": 105
         },
         "weekly": {
-          "2026-07-27": 141
+          "2026-07-27": 168
         },
         "monthly": {
-          "2026-07": 141
+          "2026-07": 168
         },
-        "total": 141
+        "total": 168
       },
       "1371931756692897893": {
         "daily": {
@@ -647,5 +749,12 @@
   },
   "rmuteConfig": {
     "roleId": "1532798890020044870"
+  },
+  "muteConfig": {
+    "roleId": "1532821381987962910"
+  },
+  "jailConfig": {
+    "jailChannelId": "1532823012016128201",
+    "roleId": "1532822999449866390"
   }
 }

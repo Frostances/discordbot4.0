@@ -55,7 +55,7 @@ const { restoreNukeSchedules }                           = require('./modules/nu
 const { handleRoleplay, ROLEPLAY_COMMANDS }              = require('./modules/roleplay');
 const { handleFunCommand, FUN_COMMANDS }                 = require('./modules/funCommands');
 const { handleRestrictCommand }                          = require('./modules/restrictcommand');
-const { restoreJailTimers }                              = require('./modules/jail');
+const { restoreJailTimers, applyJailPermsToNewChannel } = require('./modules/jail');
 const { restoreMuteTimers }                              = require('./modules/mute');
 const { restoreTempRoles, backupMemberRoles }            = require('./modules/roles');
 const { onMemberUpdate: onForcedNickUpdate }             = require('./modules/nicknames');
@@ -986,7 +986,7 @@ client.on('messageCreate', async (message) => {
     try {
          // ── Invoke Messages ──
          if (command === 'invoke') return handleInvokeCommand(message, args);
-        
+
         // ── Help ──
         if (command === 'help') return handleHelp(message, args, client, prefix);
 

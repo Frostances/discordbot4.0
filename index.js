@@ -87,6 +87,12 @@ const { handleVoiceTimeStats, handleMessageStats,
 const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
 
 // ══════════════════════════════════════════════════════════
+// MUSIC SYSTEM
+// ══════════════════════════════════════════════════════════
+const { initMusicManager } = require('./modules/musicManager');
+const { handleMusicCommand, MUSIC_COMMANDS } = require('./modules/music');
+
+// ══════════════════════════════════════════════════════════
 //  HANDLERS
 // ══════════════════════════════════════════════════════════
 const { registerSlashCommands }       = require('./handlers/slashHandler');
@@ -1513,6 +1519,7 @@ client.on('channelCreate', async (channel) => {
 //  READY
 // ══════════════════════════════════════════════════════════
 client.once('clientReady', async () => {
+    // Initialize music manager
     logger.info('BOT', `Logged in as ${client.user.tag}`);
     loadLegacyData();
     loadDictionary();
@@ -1563,6 +1570,7 @@ client.user.setPresence({ status: 'online', activities: [{ name: 'x', type: Acti
     setInterval(() => {
         refreshTopVcLeaderboards(client).catch(() => {});
     }, 60000);
+
 
     logger.info('BOT', `Ready. Serving ${client.guilds.cache.size} guilds.`);
 });

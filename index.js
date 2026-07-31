@@ -9,6 +9,7 @@ const {
 const fs   = require('fs');
 const path = require('path');
 const { ActivityType } = require('discord.js');
+const { SimpleShardingStrategy } = require('@discordjs/ws');
 
 // ══════════════════════════════════════════════════════════
 //  CORE UTILITIES
@@ -37,7 +38,8 @@ const { handleConfigCommand, getSetting }                = require('./modules/co
 const { isAdmin, isBotOwner, isStaffOrAdmin,
         checkRestriction }                               = require('./modules/helpers');
 const { handleBoosterRoleCommand,
-        handleBoostRemoved }                             = require('./modules/boosterRole');
+        handleBoostRemoved,
+        handleBoosterShareButton }                       = require('./modules/boosterRole');
 const { triggerWelcome, triggerGoodbye, triggerBoost,
         handleSystemCommand, parseEmbedCode,
         buildVars, buildChannelVars }                   = require('./modules/welcomeSystem');
@@ -73,8 +75,16 @@ const { handleButtonRoleCommand,
 const { handleReactionRoleCommand,
         handleReactionAdd, handleReactionRemove }        = require('./modules/reactionrole');
 const { handleGiveawayCommand, handleGiveawayButton,
-        restoreGiveawayTimers }                         = require('./modules/giveaways');
+        restoreGiveawayTimers,
+        trackGiveawayMessage,
+        trackGiveawayVoice }                            = require('./modules/giveaways');
 const { hasDiscordPerm }                                = require('./modules/helpers');
+const { handleTopVcCommand, trackTopVcVoiceState,
+        refreshTopVcLeaderboards }                      = require('./modules/topvc');
+const { handleVoiceTimeStats, handleMessageStats,
+        handleStreamTimeStats, handleCameraTimeStats,
+        trackMessage }                                   = require('./modules/stats');
+const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
 
 // ══════════════════════════════════════════════════════════
 //  HANDLERS
@@ -901,6 +911,21 @@ client.on('messageCreate', async (message) => {
     if (isModuleEnabled(message.guild.id, 'streaks'))  await handleStreak(message).catch(() => {});
     if (isModuleEnabled(message.guild.id, 'levels'))   await handleXpGain(message).catch(() => {});
 
+    // ── AFK system ──
+    const db = getGuildDb(message.guild.id);
+    if (isModuleEnabled(message.guild.id, 'afk')) {
+        const prefix = db.get('settings', {}).prefix || ',';
+        const isAfkCmd = message.content.toLowerCase().startsWith(prefix + 'afk');
+        if (!isAfkCmd) await checkAfkReturn(message).catch(() => {});
+        await checkAfkMentions(message).catch(() => {});
+    }
+
+    // Track giveaway message counts for active giveaways with required_messages
+    trackGiveawayMessage(message.guild.id, message.author.id, message.channel.id);
+
+    // Track message stats
+    trackMessage(message.guild.id, message.author.id, db);
+
     // ── Swear tracking ──
     if (isModuleEnabled(message.guild.id, 'swears')) {
         const lower = message.content.toLowerCase();
@@ -916,7 +941,6 @@ client.on('messageCreate', async (message) => {
     if (gwGame?.gameActive) { await gwGame.handleGuess(message, message.content); return; }
 
     // ── Prefix check ──
-    const db     = getGuildDb(message.guild.id);
     const prefix = db.get('settings', {}).prefix || ',';
     if (!message.content.startsWith(prefix)) return;
 
@@ -930,6 +954,9 @@ client.on('messageCreate', async (message) => {
     try {
         // ── Help ──
         if (command === 'help') return handleHelp(message, args, client, prefix);
+
+        // ── AFK ──
+        if (command === 'afk') return setAfk(message, args);
 
         // ── CE  (Custom Embed sender) ──
         if (command === 'ce') {
@@ -1051,6 +1078,15 @@ client.on('messageCreate', async (message) => {
 
         // ── Giveaways ──
         if (command === 'giveaway' || command === 'gw2' || command === 'giveaways') return handleGiveawayCommand(message, args, client);
+
+        // ── TOPVC ──
+        if (command === 'topvc') return handleTopVcCommand(message, args);
+
+        // ── Stats ──
+        if (command === 'voicetime') return handleVoiceTimeStats(message, args);
+        if (command === 'messages') return handleMessageStats(message, args);
+        if (command === 'streamtime') return handleStreamTimeStats(message, args);
+        if (command === 'cameratime') return handleCameraTimeStats(message, args);
 
         // ── VoiceMaster ──
         if (command === 'voicemaster' && args[0] === 'setup') {
@@ -1307,6 +1343,8 @@ client.on('interactionCreate', async (interaction) => {
             if (id.startsWith('ticket_'))          return handleTicketButton(interaction);
             if (id.startsWith('br_'))              return handleButtonRoleInteraction(interaction);
             if (id.startsWith('giveaway_enter_'))  return handleGiveawayButton(interaction);
+            if (id.startsWith('brrole_accept_') || id.startsWith('brrole_decline_'))
+                return handleBoosterShareButton(interaction, client);
         }
 
         // ── Modals ──
@@ -1359,6 +1397,23 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 
     // Voice time tracking
     await trackVoiceTime(oldState, newState).catch(() => {});
+
+    // TOPVC voice/stream/camera tracking
+    await trackTopVcVoiceState(oldState, newState, client).catch(() => {});
+
+    // Track giveaway voice time for active giveaways with required_voice
+    const gwUserId = member.id;
+    const guildId2 = newState.guild?.id || oldState.guild?.id;
+    if (guildId2) {
+        const wasInVc = !!oldState.channelId;
+        const isInVc  = !!newState.channelId;
+        if (!wasInVc && isInVc)  trackGiveawayVoice(guildId2, gwUserId, 'join');
+        if (wasInVc && !isInVc)  trackGiveawayVoice(guildId2, gwUserId, 'leave');
+        if (wasInVc && isInVc && oldState.channelId !== newState.channelId) {
+            trackGiveawayVoice(guildId2, gwUserId, 'leave');
+            trackGiveawayVoice(guildId2, gwUserId, 'join');
+        }
+    }
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1465,7 +1520,7 @@ client.once('clientReady', async () => {
 
     // custom status
 client.user.setPresence({ status: 'online', activities: [{ name: 'x', type: ActivityType.Custom, state: 'hii' }] });
-            
+
     // AntiNuke listeners
     setupAntiNukeListeners(client);
 
@@ -1503,6 +1558,11 @@ client.user.setPresence({ status: 'online', activities: [{ name: 'x', type: Acti
     setTimeout(() => {
         for (const guild of client.guilds.cache.values()) updateVoiceLeaderboard(guild).catch(() => {});
     }, 5000);
+
+    // TOPVC leaderboard refresh every 1 minute
+    setInterval(() => {
+        refreshTopVcLeaderboards(client).catch(() => {});
+    }, 60000);
 
     logger.info('BOT', `Ready. Serving ${client.guilds.cache.size} guilds.`);
 });

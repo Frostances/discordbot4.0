@@ -25,7 +25,7 @@ function getTotalXpForLevel(level) {
 async function handleXpGain(message) {
     const db = getGuildDb(message.guild.id);
     const cfg = db.get('levelsConfig', {});
-    if (!cfg.enabled) return;
+    if (cfg.enabled === false) return;
 
     // Check ignored channels and roles
     const ignoredChannels = cfg.ignoredChannels || [];

@@ -74,6 +74,13 @@ function buildGiveawayEmbed(gw, messageId) {
     if (gw.maxLevel != null) lines.push(`📊 **Max Level:** ${gw.maxLevel}`);
     if (gw.minAge   != null) lines.push(`📅 **Min Account Age:** ${gw.minAge} day(s)`);
     if (gw.minStay  != null) lines.push(`📅 **Min Server Stay:** ${gw.minStay} day(s)`);
+    if (gw.requiredMessages != null) {
+        const chanText = gw.gwMsgChannelId ? ` in <#${gw.gwMsgChannelId}>` : ' (any channel)';
+        lines.push(`💬 **Required Messages:** ${gw.requiredMessages}${chanText}`);
+    }
+    if (gw.requiredVoiceSecs != null) {
+        lines.push(`🎙️ **Required Voice Time:** ${formatDuration(gw.requiredVoiceSecs * 1000)}`);
+    }
 
     embed.setDescription(lines.join('\n'));
 
@@ -247,25 +254,68 @@ async function cmdStart(message, args) {
     const giveawayMsg = await channel.send({ embeds: [tempEmbed], components: [enterButton] });
     const messageId   = giveawayMsg.id;
 
+    // ── Parse optional flags from the prize string ──
+    // e.g. "10$ ROBUX --host @user --description text --required_messages 200 #channel --required_voice 1h"
+    let hostId2 = hostId;
+    let description2 = null;
+    let requiredMessages = null;
+    let gwMsgChannelId = null;
+    let requiredVoiceSecs = null;
+
+    // Split prize on ' --'
+    const prizeParts = prize.split(/\s+--/);
+    const cleanPrize = prizeParts[0].trim();
+    for (let i = 1; i < prizeParts.length; i++) {
+        const flag = prizeParts[i].trim();
+        const spaceIdx = flag.indexOf(' ');
+        const flagName = (spaceIdx === -1 ? flag : flag.slice(0, spaceIdx)).toLowerCase().replace(/-/g, '_');
+        const flagVal  = spaceIdx === -1 ? '' : flag.slice(spaceIdx + 1).trim();
+
+        if (flagName === 'host') {
+            const uid = flagVal.replace(/[<@!>,\s]/g, '');
+            if (uid) hostId2 = uid;
+        } else if (flagName === 'description') {
+            description2 = flagVal || null;
+        } else if (flagName === 'required_messages') {
+            const parts = flagVal.split(/\s+/);
+            const num = parseInt(parts[0]);
+            if (!isNaN(num) && num > 0) {
+                requiredMessages = num;
+                // optional channel mention
+                const chanMatch = parts[1]?.match(/^<#(\d+)>$|^(\d+)$/);
+                if (chanMatch) gwMsgChannelId = chanMatch[1] || chanMatch[2];
+            }
+        } else if (flagName === 'required_voice') {
+            const ms = parseDuration(flagVal);
+            if (ms) requiredVoiceSecs = Math.floor(ms / 1000);
+        }
+    }
+
     // Build giveaway data
     const gwData = {
-        channelId:     channel.id,
-        prize,
+        channelId:        channel.id,
+        prize:            cleanPrize,
         winnersCount,
-        hostId,
+        hostId:           hostId2,
+        startAt:          Date.now(),
         endAt,
-        entries:       [],
-        ended:         false,
-        winners:       [],
-        description:   null,
-        color:         '#FF6B6B',
-        imageUrl:      null,
-        thumbnailUrl:  null,
-        requiredRoles: [],
-        minLevel:      null,
-        maxLevel:      null,
-        minAge:        null,
-        minStay:       null,
+        entries:          [],
+        ended:            false,
+        winners:          [],
+        description:      description2,
+        color:            '#FF6B6B',
+        imageUrl:         null,
+        thumbnailUrl:     null,
+        requiredRoles:    [],
+        minLevel:         null,
+        maxLevel:         null,
+        minAge:           null,
+        minStay:          null,
+        requiredMessages,
+        gwMsgChannelId,
+        requiredVoiceSecs,
+        gwMsgCounts:      {},
+        gwVoiceSecs:      {},
     };
 
     // Save
@@ -453,7 +503,7 @@ async function cmdEdit(message, args) {
     const link   = args[1];
     const rest   = args.slice(2);
 
-    const validSubs = ['prize','winners','duration','description','color','image','thumbnail','host','requiredroles','minlevel','maxlevel','age','stay'];
+    const validSubs = ['prize','winners','duration','description','color','image','thumbnail','host','requiredroles','minlevel','maxlevel','age','stay','requiredmessages','requiredvoice'];
     if (!subSub || !validSubs.includes(subSub))
         return message.reply(err(`Valid edit options: \`${validSubs.join('`, `')}\``));
 
@@ -552,6 +602,27 @@ async function cmdEdit(message, args) {
             const days = parseInt(rest[0]);
             if (isNaN(days) || days < 0) return message.reply(err('Provide valid days.'));
             gw.minStay = days;
+            break;
+        }
+
+        case 'requiredmessages': {
+            if (rest.length === 0) { gw.requiredMessages = null; gw.gwMsgChannelId = null; break; }
+            const num = parseInt(rest[0]);
+            if (isNaN(num) || num < 0) return message.reply(err('Provide a valid message count (or 0 to remove).'));
+            gw.requiredMessages = num || null;
+            // optional channel
+            const chanMatch = rest[1]?.match(/^<#(\d+)>$|^(\d+)$/);
+            gw.gwMsgChannelId = chanMatch ? (chanMatch[1] || chanMatch[2]) : null;
+            if (!gw.gwMsgCounts) gw.gwMsgCounts = {};
+            break;
+        }
+
+        case 'requiredvoice': {
+            if (rest.length === 0 || rest[0] === '0') { gw.requiredVoiceSecs = null; break; }
+            const ms = parseDuration(rest[0]);
+            if (!ms) return message.reply(err('Invalid duration. Use formats like `1h`, `30m`.'));
+            gw.requiredVoiceSecs = Math.floor(ms / 1000);
+            if (!gw.gwVoiceSecs) gw.gwVoiceSecs = {};
             break;
         }
     }
@@ -706,6 +777,39 @@ async function handleGiveawayButton(interaction) {
         }
     }
 
+    // Required messages
+    if (gw.requiredMessages != null && gw.requiredMessages > 0) {
+        const userMsgs = (gw.gwMsgCounts || {})[userId] || 0;
+        if (userMsgs < gw.requiredMessages) {
+            const chanText = gw.gwMsgChannelId ? ` in <#${gw.gwMsgChannelId}>` : '';
+            return interaction.reply({
+                content: `❌ You need to send at least **${gw.requiredMessages}** message(s)${chanText} since this giveaway started. You have sent **${userMsgs}**.`,
+                ephemeral: true
+            });
+        }
+    }
+
+    // Required voice time
+    if (gw.requiredVoiceSecs != null && gw.requiredVoiceSecs > 0) {
+        const stored = (gw.gwVoiceSecs || {})[userId] || 0;
+        // Also count any active (ongoing) VC session at the moment of button click
+        const vcKey = `${guildId}_${userId}`;
+        const activeJoin = gwVoiceJoinMap.get(vcKey);
+        let activeBonus = 0;
+        if (activeJoin) {
+            const effectiveJoin = Math.max(activeJoin, gw.startAt || 0);
+            activeBonus = Math.max(0, Math.floor((Date.now() - effectiveJoin) / 1000));
+        }
+        const userSecs = stored + activeBonus;
+        if (userSecs < gw.requiredVoiceSecs) {
+            const needed = gw.requiredVoiceSecs - userSecs;
+            return interaction.reply({
+                content: `❌ You need **${formatDuration(gw.requiredVoiceSecs * 1000)}** of voice time in this server since this giveaway started. You have **${formatDuration(userSecs * 1000)}** (need ${formatDuration(needed * 1000)} more).`,
+                ephemeral: true
+            });
+        }
+    }
+
     // Toggle entry
     const idx = gw.entries.indexOf(userId);
     if (idx === -1) {
@@ -768,11 +872,97 @@ async function restoreGiveawayTimers(client) {
                 scheduleGiveaway(client, guildId, messageId, gw.endAt);
             }
         }
+
+        // Seed gwVoiceJoinMap for members already in VC at startup so
+        // ongoing sessions aren't lost across restarts.
+        const hasActiveVoiceGiveaway = Object.values(giveaways).some(
+            gw => !gw.ended && Date.now() < gw.endAt && gw.requiredVoiceSecs != null
+        );
+        if (hasActiveVoiceGiveaway) {
+            const guild = client.guilds.cache.get(guildId);
+            if (guild) {
+                for (const channel of guild.channels.cache.values()) {
+                    if (!channel.isVoiceBased || !channel.isVoiceBased()) continue;
+                    for (const [memberId] of channel.members) {
+                        const key = `${guildId}_${memberId}`;
+                        if (!gwVoiceJoinMap.has(key)) {
+                            // Use now as the baseline; effective join will be clamped
+                            // to gw.startAt per-giveaway when time is accumulated.
+                            gwVoiceJoinMap.set(key, Date.now());
+                        }
+                    }
+                }
+            }
+        }
     }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  GIVEAWAY TRACKING — called from index.js events
+// ──────────────────────────────────────────────────────────────
+
+// In-memory: guildId_userId → joinTimestamp (for active voice sessions)
+const gwVoiceJoinMap = new Map();
+
+/**
+ * Call from messageCreate to track messages for giveaways with required_messages.
+ */
+function trackGiveawayMessage(guildId, userId, channelId) {
+    const db = getGuildDb(guildId);
+    const giveaways = db.get('giveaways', {});
+    let dirty = false;
+    for (const gw of Object.values(giveaways)) {
+        if (gw.ended || Date.now() >= gw.endAt) continue;
+        if (gw.requiredMessages == null) continue;
+        // Channel filter
+        if (gw.gwMsgChannelId && channelId !== gw.gwMsgChannelId) continue;
+        if (!gw.gwMsgCounts) gw.gwMsgCounts = {};
+        gw.gwMsgCounts[userId] = (gw.gwMsgCounts[userId] || 0) + 1;
+        dirty = true;
+    }
+    if (dirty) db.set('giveaways', giveaways);
+}
+
+/**
+ * Call from voiceStateUpdate to track voice time for giveaways with required_voice.
+ * @param {string} guildId
+ * @param {string} userId
+ * @param {'join'|'leave'} event
+ */
+function trackGiveawayVoice(guildId, userId, event) {
+    const key = `${guildId}_${userId}`;
+    if (event === 'join') {
+        gwVoiceJoinMap.set(key, Date.now());
+        return;
+    }
+    // leave / switch
+    const joinTime = gwVoiceJoinMap.get(key);
+    gwVoiceJoinMap.delete(key);
+    if (!joinTime) return;
+
+    const leaveTime = Date.now();
+
+    const db = getGuildDb(guildId);
+    const giveaways = db.get('giveaways', {});
+    let dirty = false;
+    for (const gw of Object.values(giveaways)) {
+        if (gw.ended || leaveTime >= gw.endAt) continue;
+        if (gw.requiredVoiceSecs == null) continue;
+        // Only count voice time that occurred after this giveaway started
+        const effectiveJoin = Math.max(joinTime, gw.startAt || 0);
+        const elapsed = Math.floor((leaveTime - effectiveJoin) / 1000);
+        if (elapsed <= 0) continue;
+        if (!gw.gwVoiceSecs) gw.gwVoiceSecs = {};
+        gw.gwVoiceSecs[userId] = (gw.gwVoiceSecs[userId] || 0) + elapsed;
+        dirty = true;
+    }
+    if (dirty) db.set('giveaways', giveaways);
 }
 
 module.exports = {
     handleGiveawayCommand,
     handleGiveawayButton,
     restoreGiveawayTimers,
+    trackGiveawayMessage,
+    trackGiveawayVoice,
 };

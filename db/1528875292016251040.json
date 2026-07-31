@@ -54,7 +54,8 @@
     "message": "{embed}$v{message: {user.mention}}$v{author: welcome, {user} ! && emojilinkhere}$v{description: <:invisible:1531760713453015081><:white_star2:1531761346947973430> follow our [law](https://discord.com/channels/1528875292016251040/1528875293895299264)\n<:invisible:1531760713453015081><:invisible:1531760713453015081><:white_star2:1531761346947973430> earn [roles](https://discord.com/channels/1528875292016251040/1529515361295401090)\n<:invisible:1531760713453015081><:invisible:1531760713453015081><:invisible:1531760713453015081><:white_star2:1531761346947973430>boost 4 [perks](https://discord.com/channels/1528875292016251040/1528875293895299269) }$v{thumbnail: {user.avatar}}$v{button:https://discord.com/channels/1528875292016251040/1528898738133926060 && create a call && <a:util_whitehearts:1531761303558033449> && enabled}$v{button: && {guild.count} && <:w_members:1531761274583515176> && enabled}"
   },
   "levelsConfig": {
-    "xpRate": 5
+    "xpRate": 5,
+    "enabled": true
   },
   "boostConfig": {
     "message": "{embed}$v{message: {user.mention} *!!*}$v{color: #010101}$v{title: ty for boosting *!* <:boost:1531260159387631777> }$v{description: ** you have unlocked...** \n> VC server mute\n> pic & snipe perms\n> 2x Casino Money\n> __custom booster role__ \n**use `,help br` for custom role**\n-# perks removed after unboosting\n}$v{thumbnail: {user.avatar}}",
@@ -63,24 +64,49 @@
   },
   "boosterRoleConfig": {
     "enabled": true,
-    "shareMax": 0,
+    "shareMax": 1,
     "baseRoleId": "1531775534529253647",
     "filterWords": [
       "own"
-    ]
+    ],
+    "sharedMax": 1
   },
   "boosterRoles": {
     "1410668779347771402": {
       "roleId": "1531775729044426844",
       "sharedWith": [
-        "1278713831345881170"
+        "1371931756692897893"
       ]
     }
   },
   "users": {
     "1410668779347771402": {
-      "xp": 0,
+      "xp": 5144,
+      "level": 4,
+      "balance": 0,
+      "bank": 0,
+      "warnings": [],
+      "inventory": [],
+      "lastDaily": null,
+      "lastWeekly": null,
+      "lastWork": null,
+      "lastCrime": null
+    },
+    "1278713831345881170": {
+      "xp": 91,
       "level": 0,
+      "balance": 0,
+      "bank": 0,
+      "warnings": [],
+      "inventory": [],
+      "lastDaily": null,
+      "lastWeekly": null,
+      "lastWork": null,
+      "lastCrime": null
+    },
+    "1371931756692897893": {
+      "xp": 596,
+      "level": 2,
       "balance": 0,
       "bank": 0,
       "warnings": [],
@@ -104,8 +130,10 @@
       "entries": [
         "1410668779347771402"
       ],
-      "ended": false,
-      "winners": [],
+      "ended": true,
+      "winners": [
+        "1410668779347771402"
+      ],
       "description": "DONT BE GAY",
       "color": "#FF6B6B",
       "imageUrl": null,
@@ -138,6 +166,147 @@
       "maxLevel": null,
       "minAge": null,
       "minStay": null
+    },
+    "1531979894190379144": {
+      "channelId": "1531788363580051587",
+      "prize": "10$ ROBUX",
+      "winnersCount": 1,
+      "hostId": "1278713831345881170",
+      "endAt": 1786186869552,
+      "entries": [],
+      "ended": true,
+      "winners": [],
+      "description": "We will reroll winner if he didnt respond,",
+      "color": "#FF6B6B",
+      "imageUrl": null,
+      "thumbnailUrl": null,
+      "requiredRoles": [],
+      "minLevel": null,
+      "maxLevel": null,
+      "minAge": null,
+      "minStay": null,
+      "requiredMessages": 200,
+      "gwMsgChannelId": null,
+      "requiredVoiceSecs": 3600,
+      "gwMsgCounts": {
+        "1410668779347771402": 2
+      },
+      "gwVoiceSecs": {}
+    },
+    "1531980452397846599": {
+      "channelId": "1531788363580051587",
+      "prize": "10$ ROBUX",
+      "winnersCount": 1,
+      "hostId": "1278713831345881170",
+      "endAt": 1786187002352,
+      "entries": [
+        "1410668779347771402"
+      ],
+      "ended": true,
+      "winners": [
+        "1410668779347771402"
+      ],
+      "description": "We will reroll winner if he didnt respond,",
+      "color": "#FF6B6B",
+      "imageUrl": null,
+      "thumbnailUrl": null,
+      "requiredRoles": [],
+      "minLevel": null,
+      "maxLevel": null,
+      "minAge": null,
+      "minStay": null,
+      "requiredMessages": 3,
+      "gwMsgChannelId": null,
+      "requiredVoiceSecs": 60,
+      "gwMsgCounts": {
+        "1410668779347771402": 4
+      },
+      "gwVoiceSecs": {
+        "1410668779347771402": 73
+      }
+    },
+    "1531982848477761657": {
+      "channelId": "1531788363580051587",
+      "prize": "NITRO",
+      "winnersCount": 2,
+      "hostId": "1278713831345881170",
+      "endAt": 1785755573838,
+      "entries": [],
+      "ended": true,
+      "winners": [],
+      "description": "we will reroll winner if he didnt respond, required_voice 20s,",
+      "color": "#FF6B6B",
+      "imageUrl": null,
+      "thumbnailUrl": null,
+      "requiredRoles": [],
+      "minLevel": null,
+      "maxLevel": null,
+      "minAge": null,
+      "minStay": null,
+      "requiredMessages": null,
+      "gwMsgChannelId": null,
+      "requiredVoiceSecs": null,
+      "gwMsgCounts": {},
+      "gwVoiceSecs": {}
+    },
+    "1531983732238454896": {
+      "channelId": "1531788363580051587",
+      "prize": "Nitro",
+      "winnersCount": 1,
+      "hostId": "1278713831345881170",
+      "endAt": 1785755784560,
+      "entries": [
+        "1410668779347771402"
+      ],
+      "ended": true,
+      "winners": [],
+      "description": "hiii ,",
+      "color": "#FF6B6B",
+      "imageUrl": null,
+      "thumbnailUrl": null,
+      "requiredRoles": [],
+      "minLevel": null,
+      "maxLevel": null,
+      "minAge": null,
+      "minStay": null,
+      "requiredMessages": null,
+      "gwMsgChannelId": null,
+      "requiredVoiceSecs": 20,
+      "gwMsgCounts": {},
+      "gwVoiceSecs": {
+        "1410668779347771402": 37
+      },
+      "cancelled": true
+    },
+    "1531984290659696881": {
+      "channelId": "1531788363580051587",
+      "prize": "Nitro",
+      "winnersCount": 1,
+      "hostId": "1278713831345881170",
+      "endAt": 1785755917694,
+      "entries": [],
+      "ended": false,
+      "winners": [],
+      "description": "hiii",
+      "color": "#FF6B6B",
+      "imageUrl": null,
+      "thumbnailUrl": null,
+      "requiredRoles": [],
+      "minLevel": null,
+      "maxLevel": null,
+      "minAge": null,
+      "minStay": null,
+      "requiredMessages": null,
+      "gwMsgChannelId": null,
+      "requiredVoiceSecs": 20,
+      "gwMsgCounts": {},
+      "gwVoiceSecs": {
+        "1410668779347771402": 4238,
+        "1371931756692897893": 3394,
+        "820324513488699404": 61,
+        "1420111568300937351": 1424,
+        "1431621341760458813": 60
+      }
     }
   },
   "reactionRoles": {
@@ -163,6 +332,191 @@
       "roles": [
         "1528875292100132962"
       ]
+    }
+  },
+  "rpCounts": {
+    "1410668779347771402:1420111568300937351:slap": 1,
+    "1410668779347771402:1278713831345881170:hug": 2,
+    "1410668779347771402:1278713831345881170:cuddle": 1,
+    "1410668779347771402:1278713831345881170:kiss": 1,
+    "1410668779347771402:1278713831345881170:bite": 1,
+    "1410668779347771402:1278713831345881170:slap": 1,
+    "1410668779347771402:1278713831345881170:pat": 3
+  },
+  "afk": {},
+  "pendingBoosterShares": {
+    "1528875292016251040_1410668779347771402_1420111568300937351": {
+      "targetId": "1420111568300937351",
+      "senderId": "1410668779347771402",
+      "roleId": "1531775729044426844",
+      "guildId": "1528875292016251040",
+      "channelId": "1528875294952521975",
+      "messageId": "1532397903811707024",
+      "expiresAt": 1785508930997
+    }
+  },
+  "messageStats": {
+    "1528875292016251040": {
+      "1410668779347771402": {
+        "daily": {
+          "2026-07-30": 63,
+          "2026-07-31": 4
+        },
+        "weekly": {
+          "2026-07-27": 67
+        },
+        "monthly": {
+          "2026-07": 67
+        },
+        "total": 67
+      },
+      "1371931756692897893": {
+        "daily": {
+          "2026-07-30": 13
+        },
+        "weekly": {
+          "2026-07-27": 13
+        },
+        "monthly": {
+          "2026-07": 13
+        },
+        "total": 13
+      }
+    }
+  },
+  "topvcConfig": {
+    "channelId": "1532490870291697664",
+    "voiceTimeEnabled": true,
+    "streamsEnabled": true
+  },
+  "topvcMessages": {
+    "voiceTimeMsgId": "1532490870790688801"
+  },
+  "vcStats": {
+    "1528875292016251040": {
+      "1410668779347771402": {
+        "totalMs": 8838186,
+        "daily": {
+          "2026-07-30": 8838186
+        },
+        "weekly": {
+          "2026-07-27": 8838186
+        },
+        "monthly": {
+          "2026-07": 8838186
+        },
+        "streamMs": 1710607,
+        "cameraMs": 165383,
+        "streamDaily": {
+          "2026-07-30": 1710607
+        },
+        "cameraDaily": {
+          "2026-07-30": 165383
+        },
+        "lastJoin": 1785456351103,
+        "lastStreamJoin": null,
+        "lastCameraJoin": null,
+        "inVc": true,
+        "streaming": false,
+        "cameraOn": false
+      },
+      "1371931756692897893": {
+        "totalMs": 3395818,
+        "daily": {
+          "2026-07-30": 3395818
+        },
+        "weekly": {
+          "2026-07-27": 3395818
+        },
+        "monthly": {
+          "2026-07": 3395818
+        },
+        "streamMs": 33593,
+        "cameraMs": 0,
+        "streamDaily": {
+          "2026-07-30": 33593
+        },
+        "cameraDaily": {},
+        "lastJoin": null,
+        "lastStreamJoin": null,
+        "lastCameraJoin": null,
+        "inVc": false,
+        "streaming": false,
+        "cameraOn": false
+      },
+      "1420111568300937351": {
+        "totalMs": 6023054,
+        "daily": {
+          "2026-07-30": 6023054
+        },
+        "weekly": {
+          "2026-07-27": 6023054
+        },
+        "monthly": {
+          "2026-07": 6023054
+        },
+        "streamMs": 55250,
+        "cameraMs": 0,
+        "streamDaily": {
+          "2026-07-30": 55250
+        },
+        "cameraDaily": {},
+        "lastJoin": 1785452755736,
+        "lastStreamJoin": null,
+        "lastCameraJoin": null,
+        "inVc": true,
+        "streaming": false,
+        "cameraOn": false
+      },
+      "820324513488699404": {
+        "totalMs": 61493,
+        "daily": {
+          "2026-07-30": 61493
+        },
+        "weekly": {
+          "2026-07-27": 61493
+        },
+        "monthly": {
+          "2026-07": 61493
+        },
+        "streamMs": 0,
+        "cameraMs": 0,
+        "streamDaily": {},
+        "cameraDaily": {},
+        "lastJoin": null,
+        "lastStreamJoin": null,
+        "lastCameraJoin": null,
+        "inVc": false,
+        "streaming": false,
+        "cameraOn": false
+      },
+      "1431621341760458813": {
+        "totalMs": 60462,
+        "daily": {
+          "2026-07-30": 60462
+        },
+        "weekly": {
+          "2026-07-27": 60462
+        },
+        "monthly": {
+          "2026-07": 60462
+        },
+        "streamMs": 0,
+        "cameraMs": 0,
+        "streamDaily": {},
+        "cameraDaily": {},
+        "lastJoin": null,
+        "lastStreamJoin": null,
+        "lastCameraJoin": null,
+        "inVc": false,
+        "streaming": false,
+        "cameraOn": false
+      }
+    }
+  },
+  "sharedBoosterRoles": {
+    "1528875292016251040": {
+      "1371931756692897893": []
     }
   }
 }

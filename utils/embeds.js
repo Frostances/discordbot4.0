@@ -67,20 +67,44 @@ function _mention(m) {
 }
 
 /**
- * Greed-style success reply — plain text, green checkmark.
+ * Greed-style success reply — green embed with checkmark.
+ * Returns a message payload object: { embeds: [...] }
  * @param {GuildMember|User|string} memberOrUser
  * @param {string} text
  */
 function greedOk(memberOrUser, text) {
-    return `<:checkmark:1528890895859056680> ${_mention(memberOrUser)}: ${text}`;
+    return {
+        embeds: [
+            new EmbedBuilder()
+                .setColor(COLORS.success)
+                .setDescription(`<:checkmark:1528890895859056680> ${_mention(memberOrUser)}: ${text}`)
+        ]
+    };
 }
 
 /**
- * Greed-style warning/error reply — plain text, yellow warn icon.
+ * Greed-style warning/error reply — yellow embed with warn icon.
+ * Returns a message payload object: { embeds: [...] }
  * @param {GuildMember|User|string} memberOrUser
  * @param {string} text
  */
 function greedWarn(memberOrUser, text) {
+    return {
+        embeds: [
+            new EmbedBuilder()
+                .setColor(COLORS.warning)
+                .setDescription(`<:warn:1528892150698348727> ${_mention(memberOrUser)}: ${text}`)
+        ]
+    };
+}
+
+/**
+ * Raw text versions (for use inside arrays / string joins).
+ */
+function greedOkText(memberOrUser, text) {
+    return `<:checkmark:1528890895859056680> ${_mention(memberOrUser)}: ${text}`;
+}
+function greedWarnText(memberOrUser, text) {
     return `<:warn:1528892150698348727> ${_mention(memberOrUser)}: ${text}`;
 }
 
@@ -109,6 +133,6 @@ module.exports = {
     COLORS, CHECK_EMOJI, XMARK_EMOJI,
     base, success, error, warning, info, loading,
     ok, err,
-    greedOk, greedWarn,
+    greedOk, greedWarn, greedOkText, greedWarnText,
     modAction, pagination,
 };

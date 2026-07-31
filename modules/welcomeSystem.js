@@ -521,7 +521,7 @@ const SYSTEM_LABELS = {
 
 async function handleSystemCommand(message, system, args) {
     const { isAdmin }             = require('./helpers');
-    const { greedOk, greedWarn, base, COLORS } = require('../utils/embeds');
+    const { greedOk, greedWarn, greedWarnText, base, COLORS } = require('../utils/embeds');
 
     if (!isAdmin(message.member))
         return message.reply(greedWarn(message.member, 'Only admins can configure this system.'));
@@ -561,7 +561,7 @@ async function handleSystemCommand(message, system, args) {
                 '`{boost.count}` (for boosts) `{level.new_rank}` `{level.user_xp}` (for levelup)',
             ];
             return message.reply([
-                greedWarn(message.member, `Usage: \`,${system} message <text or embed code>\``),
+                greedWarnText(message.member, `Usage: \`,${system} message <text or embed code>\``),
                 '',
                 '**Plain text:** `,welcome message Welcome {user.mention}!`',
                 '**Embed:** `,welcome message {embed}$v{title: Welcome!}$v{description: Hi {user.mention}}$v{color: 5865F2}$v{thumbnail: {user.avatar}}`',

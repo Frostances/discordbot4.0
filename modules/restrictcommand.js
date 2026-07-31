@@ -38,7 +38,7 @@ function isRestricted(member, command, guildId) {
 function checkRestriction(ctx, command) {
     if (!ctx.guild || !ctx.member) return false;
     if (isRestricted(ctx.member, command, ctx.guild.id)) {
-        ctx.reply({ content: greedWarn(ctx.member, 'This command is **restricted** for your role.'), ephemeral: true }).catch(() => {});
+        ctx.reply({ ...greedWarn(ctx.member, 'This command is **restricted** for your role.'), ephemeral: true }).catch(() => {});
         return true;
     }
     return false;

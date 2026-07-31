@@ -395,10 +395,10 @@
     "1410668779347771402": {
       "guesswordWins": 0,
       "swearCount": 2,
-      "vcTotalMinutes": 238,
+      "vcTotalMinutes": 3161,
       "warnings": [],
-      "streakCount": 2,
-      "lastStreakDate": "2026-07-29"
+      "streakCount": 4,
+      "lastStreakDate": "2026-07-31"
     },
     "1164852057413525566": {
       "guesswordWins": 0,
@@ -419,7 +419,7 @@
     "1420111568300937351": {
       "guesswordWins": 0,
       "swearCount": 4,
-      "vcTotalMinutes": 11,
+      "vcTotalMinutes": 111,
       "warnings": [],
       "streakCount": 2,
       "lastStreakDate": "2026-07-21"
@@ -493,8 +493,32 @@
       "swearCount": 0,
       "vcTotalMinutes": 0,
       "warnings": [],
+      "streakCount": 2,
+      "lastStreakDate": "2026-07-30"
+    },
+    "1371931756692897893": {
+      "guesswordWins": 0,
+      "swearCount": 0,
+      "vcTotalMinutes": 56,
+      "warnings": [],
       "streakCount": 1,
-      "lastStreakDate": "2026-07-29"
+      "lastStreakDate": "2026-07-30"
+    },
+    "820324513488699404": {
+      "guesswordWins": 0,
+      "swearCount": 0,
+      "vcTotalMinutes": 1,
+      "warnings": [],
+      "streakCount": 0,
+      "lastStreakDate": null
+    },
+    "1431621341760458813": {
+      "guesswordWins": 0,
+      "swearCount": 0,
+      "vcTotalMinutes": 1,
+      "warnings": [],
+      "streakCount": 0,
+      "lastStreakDate": null
     }
   },
   "persistentData": {
@@ -504,10 +528,10 @@
       "1303555356219412540": 1755785696800,
       "889906903554072647": 1755906195961,
       "1408853277470097568": 1784556356510,
-      "1420111568300937351": 1784588939792,
       "565142271494848522": 1784584507038,
       "769683849566355489": 1784584695187,
-      "1410668779347771402": 1785277800154
+      "1420111568300937351": 1785452755735,
+      "1410668779347771402": 1785456351102
     },
     "staffRoles": [],
     "voiceMaster": {},

@@ -38,8 +38,8 @@ const { handleNuke } = require('./nuke');
 async function askConfirmation(ctx, embed) {
     const isInter = !!ctx.deferReply;
     const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('mod_confirm').setLabel('Confirm').setEmoji('✅').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('mod_cancel') .setLabel('Cancel') .setEmoji('❌').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('mod_confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('mod_cancel') .setLabel('Cancel') .setStyle(ButtonStyle.Danger),
     );
 
     let msg;

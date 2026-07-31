@@ -6,5 +6,19 @@
   "cases": [],
   "notes": {},
   "temproles": [],
-  "reminders": []
+  "reminders": [],
+  "users": {
+    "1278713831345881170": {
+      "xp": 25,
+      "level": 0,
+      "balance": 0,
+      "bank": 0,
+      "warnings": [],
+      "inventory": [],
+      "lastDaily": null,
+      "lastWeekly": null,
+      "lastWork": null,
+      "lastCrime": null
+    }
+  }
 }

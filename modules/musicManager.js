@@ -385,6 +385,17 @@ async function resolveQuery(node, query) {
     }
 }
 
+// Get the best available node
+function getBestNode() {
+    const shoukaku = getShoukaku();
+    if (!shoukaku) return null;
+    // Get the first connected node
+    for (const node of shoukaku.nodes.values()) {
+        if (node.state === 2) return node; // 2 = connected
+    }
+    return null;
+}
+
 // ══════════════════════════════════════════════════════════
 // EXPORTS
 // ══════════════════════════════════════════════════════════
@@ -409,4 +420,5 @@ module.exports = {
     getNextLoopMode,
     setupPlayerEvents,
     resolveQuery,
+    getBestNode,
 };

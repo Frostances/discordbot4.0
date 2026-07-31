@@ -5,7 +5,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const { 
-    getShoukaku, getPlayer, hasPlayer, 
+    getShoukaku, getPlayer, hasPlayer, getBestNode,
     formatDuration, formatTrack,
     PRESETS, PRESET_NAMES,
     getActiveFilters, addActiveFilter, removeActiveFilter, clearActiveFilters,
@@ -105,12 +105,7 @@ async function cmdPlay(ctx, args) {
 
     if (isInteraction) await ctx.deferReply();
 
-    const shoukaku = getShoukaku();
-    if (!shoukaku) {
-        return sendReply(ctx, { embeds: [errorEmbed('Music system is not initialized.')] });
-    }
-
-    const node = shoukaku.options.nodeResolver(shoukaku.nodes);
+    const node = getBestNode();
     if (!node) {
         return sendReply(ctx, { embeds: [errorEmbed('No Lavalink nodes are available.')] });
     }

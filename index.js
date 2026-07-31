@@ -871,6 +871,18 @@ const ALIASES = {
     // Misc
     tt: 'ticket', an: 'antinuke', ar: 'antiraid', am: 'automod',
     vm: 'voicemaster',
+     // Music
+     p: 'play',
+     q: 'queue',
+     s: 'skip',
+     vol: 'volume',
+     ff: 'fastforward',
+     rw: 'rewind',
+     dc: 'disconnect',
+     leave: 'disconnect',
+     stop: 'disconnect',
+     np: 'nowplaying',
+     loop: 'repeat',
 };
 
 // ══════════════════════════════════════════════════════════
@@ -1197,6 +1209,19 @@ client.on('messageCreate', async (message) => {
         // ── Fun commands ──
         if (FUN_COMMANDS.has(command)) return handleFunCommand(message, command, args);
 
+         // ── Music commands ──
+         if (MUSIC_COMMANDS.has(command)) {
+             // Handle queue subcommands
+             if (command === 'queue' && args[0]) {
+                 const sub = args[0].toLowerCase();
+                 if (sub === 'shuffle') return handleMusicCommand(message, 'queue-shuffle', args.slice(1));
+                 if (sub === 'empty') return handleMusicCommand(message, 'queue-empty', args.slice(1));
+                 if (sub === 'remove') return handleMusicCommand(message, 'queue-remove', args.slice(1));
+                 if (sub === 'move') return handleMusicCommand(message, 'queue-move', args.slice(1));
+             }
+             return handleMusicCommand(message, command, args);
+         }
+
         // ── Info commands ──
         if (command === 'ping') return handlePing(message);
 
@@ -1519,8 +1544,9 @@ client.on('channelCreate', async (channel) => {
 //  READY
 // ══════════════════════════════════════════════════════════
 client.once('clientReady', async () => {
-    // Initialize music manager
     logger.info('BOT', `Logged in as ${client.user.tag}`);
+     // Initialize music manager
+     initMusicManager(client);
     loadLegacyData();
     loadDictionary();
     scheduleNewDay();

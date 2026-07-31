@@ -87,6 +87,11 @@ const { handleVoiceTimeStats, handleMessageStats,
 const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
 
 // ══════════════════════════════════════════════════════════
+// FAKE PERMISSIONS SYSTEM
+// ══════════════════════════════════════════════════════════
+const { handleFakePermissionsCommand } = require('./modules/fakepermissions');
+
+// ══════════════════════════════════════════════════════════
 // MUSIC SYSTEM
 // ══════════════════════════════════════════════════════════
 const { initMusicManager } = require('./modules/musicManager');
@@ -883,6 +888,9 @@ const ALIASES = {
      stop: 'disconnect',
      np: 'nowplaying',
      loop: 'repeat',
+     // Fake Permissions
+     fp: 'fakepermissions',
+     fakeperms: 'fakepermissions',
 };
 
 // ══════════════════════════════════════════════════════════
@@ -1208,6 +1216,9 @@ client.on('messageCreate', async (message) => {
 
         // ── Fun commands ──
         if (FUN_COMMANDS.has(command)) return handleFunCommand(message, command, args);
+
+         // ── Fake Permissions ──
+         if (command === 'fakepermissions') return handleFakePermissionsCommand(message, args);
 
          // ── Music commands ──
          if (MUSIC_COMMANDS.has(command)) {

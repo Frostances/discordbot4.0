@@ -77,6 +77,9 @@ const { handleButtonRoleCommand,
 const { handleReactionRoleCommand,
         handleReactionAdd, handleReactionRemove }        = require('./modules/reactionrole');
 const { handleGiveawayCommand, handleGiveawayButton,
+        handleGiveawayReactionAdd,
+        handleGiveawayReactionRemove,
+        handleGiveawayMessageDelete,
         restoreGiveawayTimers,
         trackGiveawayMessage,
         trackGiveawayVoice }                            = require('./modules/giveaways');
@@ -1273,6 +1276,21 @@ client.on('messageCreate', async (message) => {
 // ══════════════════════════════════════════════════════════
 //  INTERACTION CREATE
 // ══════════════════════════════════════════════════════════
+// ── Giveaway message delete handler ──
+client.on('messageDelete', async (message) => {
+    if (!message.guild) return;
+    await handleGiveawayMessageDelete(message, client);
+});
+
+// ── Giveaway reaction handlers ──
+client.on('messageReactionAdd', async (reaction, user) => {
+  await handleGiveawayReactionAdd(reaction, user, client);
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+  await handleGiveawayReactionRemove(reaction, user, client);
+});
+
 client.on('interactionCreate', async (interaction) => {
     try {
         // ── Slash commands ──
@@ -1399,7 +1417,7 @@ client.on('interactionCreate', async (interaction) => {
             if (id.startsWith('vm_'))              return handleVoiceMasterButton(interaction);
             if (id.startsWith('ticket_'))          return handleTicketButton(interaction);
             if (id.startsWith('br_'))              return handleButtonRoleInteraction(interaction);
-            if (id.startsWith('giveaway_enter_'))  return handleGiveawayButton(interaction);
+            if (id.startsWith('giveaway_stats_'))  return handleGiveawayButton(interaction);
             if (id.startsWith('brrole_accept_') || id.startsWith('brrole_decline_'))
                 return handleBoosterShareButton(interaction, client);
         }

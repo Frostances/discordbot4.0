@@ -602,6 +602,23 @@
       "status": "pardoned",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 36,
+      "type": "kick",
+      "targetId": "1408853277470097568",
+      "executorId": "1278713831345881170",
+      "reason": "bad boy",
+      "timestamp": 1785595130315,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -654,8 +671,8 @@
       "lastCrime": null
     },
     "1278713831345881170": {
-      "xp": 91,
-      "level": 0,
+      "xp": 615,
+      "level": 2,
       "balance": 0,
       "bank": 0,
       "warnings": [],
@@ -1514,6 +1531,18 @@
           "2026-08": 33
         },
         "total": 33
+      },
+      "1278713831345881170": {
+        "daily": {
+          "2026-08-01": 33
+        },
+        "weekly": {
+          "2026-07-27": 33
+        },
+        "monthly": {
+          "2026-08": 33
+        },
+        "total": 33
       }
     }
   },
@@ -1565,18 +1594,17 @@
       "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Kicked\n<:idksillydraw:1532735310050496635> You've been kicked in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
     },
     "ban": {
-      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Banned\n<:idksillydraw:1532735310050496635> You've been banned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Contact Mod to Appeal inline}$v{footer: --------------------------------------------------------------}$v{thumbnail: {user.avatar}}"
-    },
-    "unban": {
-      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Unbanned <:known:1531260107306831872> \n<:idksillydraw:1532735310050496635> You've been Unbanned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
-    },
-    "imute": {
-      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Unbanned <:known:1531260107306831872> \n<:idksillydraw:1532735310050496635> You've been Unbanned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
+      "dm": "banned {user}",
+      "message": "banned {user}"
     }
   },
   "roleBackups": {
     "1278713831345881170": [
       "1528875292100132962",
+      "1528875292100132957"
+    ],
+    "1408853277470097568": [
+      "1528875292213641258",
       "1528875292100132957"
     ]
   },

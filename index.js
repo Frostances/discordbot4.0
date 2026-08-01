@@ -536,9 +536,21 @@ async function handleVoiceMasterJoin(member, newState) {
     if (!vm.joinChannelId || newState.channelId !== vm.joinChannelId) return;
     const category = member.guild.channels.cache.get(vm.categoryId);
     try {
+        const joinChannel = member.guild.channels.cache.get(vm.joinChannelId);
+        const overwrites = [];
+        if (joinChannel && joinChannel.permissionOverwrites) {
+            for (const [id, perm] of joinChannel.permissionOverwrites.cache) {
+                overwrites.push({
+                    id: id,
+                    allow: perm.allow.bitfield,
+                    deny: perm.deny.bitfield,
+                });
+            }
+        }
+        overwrites.push({ id: member.id, allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] });
         const vc = await member.guild.channels.create({
             name: `${member.displayName}'s VC`, type: ChannelType.GuildVoice, parent: category || null,
-            permissionOverwrites: [{ id: member.id, allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] }],
+            permissionOverwrites: overwrites,
         });
         tempVCOwners.set(vc.id, member.id); saveLegacyData();
         await member.voice.setChannel(vc);
@@ -817,6 +829,31 @@ async function handleVCPrefixCommand(message, args) {
         await vc.permissionOverwrites.edit(target, { Connect: null });
         return message.reply({ embeds: [mkSuccess('User Unbanned', `<@${target.id}> can now connect to your VC again.`)] });
     }
+    if (sub === 'mute') {
+        const target = message.mentions.members.first() ||
+            (args[1]?.match(/^\d+$/) ? await guild.members.fetch(args[1]).catch(() => null) : null);
+        if (!target) return message.reply({ embeds: [mkError('Missing Target', 'Usage: `.vc mute @user`')] });
+        if (target.id === member.id) return message.reply({ embeds: [mkError('Invalid', 'You cannot mute yourself.')] });
+        if (!vc.members.has(target.id)) return message.reply({ embeds: [mkError('Not in VC', 'That user is not in your voice channel.')] });
+        const db = getGuildDb(guild.id);
+        const allowedRoles = db.get('vcServerMuteRoles', []);
+        const hasRole = allowedRoles.some(rid => member.roles.cache.has(rid));
+        if (!hasRole) return message.reply({ embeds: [mkError('No Permission', 'You need a VC server-mute role to use this. Use `,vcservermute list` to see available roles.')] });
+        await target.voice.setMute(true, 'VC server-mute by owner').catch(() => {});
+        return message.reply({ embeds: [mkSuccess('User Muted', `<@${target.id}> has been server-muted in your VC.`)] });
+    }
+    if (sub === 'unmute') {
+        const target = message.mentions.members.first() ||
+            (args[1]?.match(/^\d+$/) ? await guild.members.fetch(args[1]).catch(() => null) : null);
+        if (!target) return message.reply({ embeds: [mkError('Missing Target', 'Usage: `.vc unmute @user`')] });
+        if (!vc.members.has(target.id)) return message.reply({ embeds: [mkError('Not in VC', 'That user is not in your voice channel.')] });
+        const db = getGuildDb(guild.id);
+        const allowedRoles = db.get('vcServerMuteRoles', []);
+        const hasRole = allowedRoles.some(rid => member.roles.cache.has(rid));
+        if (!hasRole) return message.reply({ embeds: [mkError('No Permission', 'You need a VC server-mute role to use this. Use `,vcservermute list` to see available roles.')] });
+        await target.voice.setMute(false, 'VC server-unmute by owner').catch(() => {});
+        return message.reply({ embeds: [mkSuccess('User Unmuted', `<@${target.id}> has been server-unmuted in your VC.`)] });
+    }
 
     return message.reply({ embeds: [mkInfo('VC Commands',
         '`.vc lock` — lock your VC\n' +
@@ -829,8 +866,45 @@ async function handleVCPrefixCommand(message, args) {
         '`.vc kick @user` — disconnect a member\n' +
         '`.vc ban @user` — ban a member from your VC\n' +
         '`.vc unban @user` — remove a VC ban\n' +
+        '`.vc mute @user` — server-mute a member\n' +
+        '`.vc unmute @user` — server-unmute a member\n' +
         '`.vc delete` — delete your VC'
     )] });
+}
+
+// ══════════════════════════════════════════════════════════
+// VC SERVER MUTE — roles that can server-mute in their own VM VC
+// ══════════════════════════════════════════════════════════
+async function handleVcServerMuteCommand(message, args) {
+    const { greedOk, greedWarn } = require('./utils/embeds');
+    const sub = args[0]?.toLowerCase();
+    const db = getGuildDb(message.guild.id);
+
+    if (sub === 'add') {
+        const role = message.mentions.roles.first();
+        if (!role) return message.reply(greedWarn(message.member, 'Mention a role: `,vcservermute add @Role`'));
+        const list = db.get('vcServerMuteRoles', []);
+        if (list.includes(role.id)) return message.reply(greedWarn(message.member, 'That role is already in the list.'));
+        list.push(role.id);
+        db.set('vcServerMuteRoles', list);
+        return message.reply(greedOk(message.member, `Added <@&${role.id}> to the VC server-mute roles.`));
+    }
+    if (sub === 'remove') {
+        const role = message.mentions.roles.first();
+        if (!role) return message.reply(greedWarn(message.member, 'Mention a role: `,vcservermute remove @Role`'));
+        let list = db.get('vcServerMuteRoles', []);
+        if (!list.includes(role.id)) return message.reply(greedWarn(message.member, 'That role is not in the list.'));
+        list = list.filter(id => id !== role.id);
+        db.set('vcServerMuteRoles', list);
+        return message.reply(greedOk(message.member, `Removed <@&${role.id}> from the VC server-mute roles.`));
+    }
+    if (sub === 'list') {
+        const list = db.get('vcServerMuteRoles', []);
+        if (!list.length) return message.reply(greedOk(message.member, 'No VC server-mute roles configured.'));
+        const roles = list.map(id => `<@&${id}>`).join('\n');
+        return message.reply({ embeds: [new EmbedBuilder().setTitle('🔇 VC Server-Mute Roles').setDescription(roles).setColor('#5865F2')] });
+    }
+    return message.reply(greedWarn(message.member, 'Usage: `,vcservermute add @Role` / `,vcservermute remove @Role` / `,vcservermute list`'));
 }
 
 // ══════════════════════════════════════════════════════════
@@ -884,6 +958,7 @@ const ALIASES = {
     // Misc
     tt: 'ticket', an: 'antinuke', ar: 'antiraid', am: 'automod',
     vm: 'voicemaster',
+    vsm: 'vcservermute',
      // Music
      p: 'play',
      q: 'queue',
@@ -1074,6 +1149,29 @@ client.on('messageCreate', async (message) => {
 
         // ── Module toggle ──
         if (command === 'module' || command === 'modules') return handleModuleCommand(message, args);
+
+        // ── Unmute VC Setup ──
+        if (command === 'unmutevc') {
+            if (args[0] === 'setup') {
+                if (!hasDiscordPerm(message.member, 'ManageChannels')) return message.reply({ embeds: [mkError('Permission Denied', 'You need the **Manage Channels** permission to set up Unmute VC.')] });
+                const existingId = db.get('unmuteVcChannelId');
+                if (existingId && message.guild.channels.cache.has(existingId)) {
+                    return message.reply('❌ Unmute VC is already set up. Delete it first to re-setup.');
+                }
+                try {
+                    const ch = await message.guild.channels.create({
+                        name: 'unmute yourself',
+                        type: ChannelType.GuildVoice,
+                    });
+                    db.set('unmuteVcChannelId', ch.id);
+                    return message.reply(`✅ Unmute VC created: <#${ch.id}>`);
+                } catch (err) { logger.error('UNMUTEVC', 'Setup error', err); return message.reply('❌ Failed to create channel.'); }
+            }
+            return message.reply({ embeds: [mkInfo('Usage', '`,unmutevc setup` — create an "unmute yourself" voice channel')] });
+        }
+
+        // ── VC Server Mute ──
+        if (command === 'vcservermute') return handleVcServerMuteCommand(message, args);
 
         // ── Moderation (all routed via hub) ──
         if (MOD_COMMANDS.has(command)) return handleModerationCommand(message, command, args, client);
@@ -1447,7 +1545,19 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (!member) return;
     const guildId = newState.guild?.id || oldState.guild?.id;
 
-    // Unmute channel
+    // Unmute VC (via ,unmutevc setup)
+    const db2 = getGuildDb(guildId);
+    const unmuteVcId = db2.get('unmuteVcChannelId');
+    if (unmuteVcId && newState.channelId === unmuteVcId && oldState.channelId !== unmuteVcId) {
+        if (member.voice.serverMute || member.voice.selfMute) {
+            try { await member.voice.setMute(false); } catch {}
+        }
+        setTimeout(async () => {
+            try { if (member.voice.channel?.id === unmuteVcId) await member.voice.disconnect(); } catch {}
+        }, 5000);
+    }
+
+    // Unmute channel (legacy config system)
     const unmuteChId = getSetting(guildId, 'unmuteChannelId');
     if (unmuteChId && newState.channelId === unmuteChId && oldState.channelId !== unmuteChId) {
         if (member.voice.serverMute || member.voice.selfMute) {
@@ -1590,6 +1700,16 @@ client.on('channelCreate', async (channel) => {
     await applyMutePermsToNewChannel(channel).catch(() => {});
     await applyJailPermsToNewChannel(channel).catch(() => {});
   } catch {}
+});
+
+client.on('channelDelete', async (channel) => {
+  if (!channel.guild) return;
+  const db = getGuildDb(channel.guild.id);
+  const unmuteId = db.get('unmuteVcChannelId');
+  if (unmuteId && channel.id === unmuteId) {
+    db.set('unmuteVcChannelId', null);
+    logger.info('UNMUTEVC', `Unmute VC deleted in ${channel.guild.name}, cleared setting.`);
+  }
 });
 
 

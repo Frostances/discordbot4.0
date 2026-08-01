@@ -163,15 +163,28 @@ function parseEmbedCode(raw, vars = {}, guild = null) {
 
       case 'field': {
         const fparts2 = value.split('&&').map(s => s.trim());
-        const [fname, fvalue, finline] = fparts2;
-        if (fname && fvalue) {
+        let fname = fparts2[0] || '';
+        let fvalue = fparts2[1] || '';
+        let finline = fparts2[2] || '';
+        const inlineTruthy = ['true', 'inline', 'yes', '1', 'on'];
+        // If no explicit inline flag, check if value ends with an inline keyword
+        if (!finline && fvalue) {
+          const words = fvalue.split(/\s+/);
+          const lastWord = words[words.length - 1]?.toLowerCase();
+          if (inlineTruthy.includes(lastWord)) {
+            finline = lastWord;
+            fvalue = words.slice(0, -1).join(' ');
+          }
+        }
+        if (fname) {
           try {
+            const isInline = finline ? inlineTruthy.includes(finline.toLowerCase()) : false;
             embed.addFields({
               name: fname.slice(0, 256),
               value: fvalue.slice(0, 1024),
-              inline: finline?.toLowerCase() === 'true' || finline?.toLowerCase() === 'inline',
+              inline: isInline,
             });
-          } catch {}
+          } catch (e) { console.error('[EMBED] Field parse error:', e); }
         }
         break;
       }

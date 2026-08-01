@@ -724,8 +724,8 @@
       "lastCrime": null
     },
     "1278713831345881170": {
-      "xp": 2762,
-      "level": 3,
+      "xp": 3183,
+      "level": 4,
       "balance": 0,
       "bank": 0,
       "warnings": [],
@@ -932,11 +932,13 @@
       "requiredVoiceSecs": 20,
       "gwMsgCounts": {},
       "gwVoiceSecs": {
-        "1410668779347771402": 5158,
+        "1410668779347771402": 5256,
         "1371931756692897893": 3394,
         "820324513488699404": 61,
         "1420111568300937351": 1463,
-        "1431621341760458813": 60
+        "1431621341760458813": 60,
+        "1278713831345881170": 66,
+        "1408853277470097568": 161
       }
     },
     "1532867475144708209": {
@@ -1587,15 +1589,15 @@
       },
       "1278713831345881170": {
         "daily": {
-          "2026-08-01": 84
+          "2026-08-01": 96
         },
         "weekly": {
-          "2026-07-27": 84
+          "2026-07-27": 96
         },
         "monthly": {
-          "2026-08": 84
+          "2026-08": 96
         },
-        "total": 84
+        "total": 96
       }
     }
   },
@@ -1610,15 +1612,15 @@
   "vcStats": {
     "1528875292016251040": {
       "1410668779347771402": {
-        "totalMs": 413747,
+        "totalMs": 509810,
         "daily": {
-          "2026-08-01": 413747
+          "2026-08-01": 509810
         },
         "weekly": {
-          "2026-07-27": 413747
+          "2026-07-27": 509810
         },
         "monthly": {
-          "2026-08": 413747
+          "2026-08": 509810
         },
         "streamMs": 72840,
         "cameraMs": 151316,
@@ -1632,6 +1634,50 @@
         "lastStreamJoin": null,
         "lastCameraJoin": null,
         "inVc": false,
+        "streaming": false,
+        "cameraOn": false
+      },
+      "1278713831345881170": {
+        "totalMs": 110735,
+        "daily": {
+          "2026-08-01": 110735
+        },
+        "weekly": {
+          "2026-07-27": 110735
+        },
+        "monthly": {
+          "2026-08": 110735
+        },
+        "streamMs": 0,
+        "cameraMs": 0,
+        "streamDaily": {},
+        "cameraDaily": {},
+        "lastJoin": null,
+        "lastStreamJoin": null,
+        "lastCameraJoin": null,
+        "inVc": false,
+        "streaming": false,
+        "cameraOn": false
+      },
+      "1408853277470097568": {
+        "totalMs": 55460,
+        "daily": {
+          "2026-08-01": 55460
+        },
+        "weekly": {
+          "2026-07-27": 55460
+        },
+        "monthly": {
+          "2026-08": 55460
+        },
+        "streamMs": 0,
+        "cameraMs": 0,
+        "streamDaily": {},
+        "cameraDaily": {},
+        "lastJoin": 1785611425209,
+        "lastStreamJoin": null,
+        "lastCameraJoin": null,
+        "inVc": true,
         "streaming": false,
         "cameraOn": false
       }
@@ -1681,5 +1727,9 @@
     "message": "{embed}$v{author: {guild.name} && {guild.icon}}$v{color: ffeafc}$v{message: {user.mention}}$v{title: **goodbye, {user}**...}$v{description:\n> **{user}'s roles:**\n> {user.role_list}\n}$v{footer: they were our {user.join_position}th member | {user.id}}",
     "channelId": "1528875294952521974",
     "enabled": true
-  }
+  },
+  "unmuteVcChannelId": null,
+  "vcServerMuteRoles": [
+    "1529250721281740821"
+  ]
 }

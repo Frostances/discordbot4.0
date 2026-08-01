@@ -619,6 +619,57 @@
       "status": "active",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 37,
+      "type": "kick",
+      "targetId": "1408853277470097568",
+      "executorId": "1278713831345881170",
+      "reason": "test",
+      "timestamp": 1785604278438,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 38,
+      "type": "ban",
+      "targetId": "1408853277470097568",
+      "executorId": "1278713831345881170",
+      "reason": "also test",
+      "timestamp": 1785604684561,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
+    },
+    {
+      "id": 39,
+      "type": "unban",
+      "targetId": "1408853277470097568",
+      "executorId": "1278713831345881170",
+      "reason": "No reason provided",
+      "timestamp": 1785604851199,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -629,7 +680,9 @@
     "interfaceMessageId": "1531791959201546445"
   },
   "welcomeConfig": {
-    "message": "{embed}$v{message: {user.mention}}$v{author: welcome, {user} ! && emojilinkhere}$v{description: <:invisible:1531760713453015081><:white_star2:1531761346947973430> follow our [law](https://discord.com/channels/1528875292016251040/1528875293895299264)\n<:invisible:1531760713453015081><:invisible:1531760713453015081><:white_star2:1531761346947973430> earn [roles](https://discord.com/channels/1528875292016251040/1529515361295401090)\n<:invisible:1531760713453015081><:invisible:1531760713453015081><:invisible:1531760713453015081><:white_star2:1531761346947973430>boost 4 [perks](https://discord.com/channels/1528875292016251040/1528875293895299269) }$v{thumbnail: {user.avatar}}$v{button:https://discord.com/channels/1528875292016251040/1528898738133926060 && create a call && <a:util_whitehearts:1531761303558033449> && enabled}$v{button: && {guild.count} && <:w_members:1531761274583515176> && enabled}"
+    "message": "{embed}$v{message: {user.mention}}$v{author: welcome, {user}! && <:moon:1533126502080843977> }$v{description: <:invisible:1531760713453015081><:whitestar:1533126538315304960> follow [law](https://discord.com/channels/1528875292016251040/1528875293895299264)\n<:invisible:1531760713453015081><:invisible:1531760713453015081><:whitestar:1533126538315304960> boost / invite friends \n<:invisible:1531760713453015081><:invisible:1531760713453015081><:invisible:1531760713453015081><:whitestar:1533126538315304960> get your [roles](https://discord.com/channels/1528875292016251040/1529515361295401090) }$v{thumbnail: {user.avatar}}$v{button: https://discord.com/channels/1528875292016251040/1531788364628627616 && call&& <:moon:1533126502080843977> && enabled}$v{button: && {guild.count} && <:w_members:1531761274583515176> && enabled}",
+    "channelId": "1529164919604514826",
+    "enabled": true
   },
   "levelsConfig": {
     "xpRate": 5,
@@ -671,8 +724,8 @@
       "lastCrime": null
     },
     "1278713831345881170": {
-      "xp": 1243,
-      "level": 2,
+      "xp": 2762,
+      "level": 3,
       "balance": 0,
       "bank": 0,
       "warnings": [],
@@ -1534,15 +1587,15 @@
       },
       "1278713831345881170": {
         "daily": {
-          "2026-08-01": 44
+          "2026-08-01": 84
         },
         "weekly": {
-          "2026-07-27": 44
+          "2026-07-27": 84
         },
         "monthly": {
-          "2026-08": 44
+          "2026-08": 84
         },
-        "total": 44
+        "total": 84
       }
     }
   },
@@ -1591,11 +1644,14 @@
   },
   "invokeMessages": {
     "kick": {
-      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Kicked\n<:idksillydraw:1532735310050496635> You've been kicked in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
+      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Kicked\n<:idksillydraw:1532735310050496635> You've been kicked in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) }$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
     },
     "ban": {
-      "dm": "banned {user}",
-      "message": "banned {user}"
+      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Banned\n<:idksillydraw:1532735310050496635> You've been banned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* inline}$v{field: Misc && Contact Mod to Appeal inline}$v{footer: --------------------------------------------------------------}$v{thumbnail: {user.avatar}}",
+      "message": "{embed}$v{color: #ffe3f8}$v{description: > *it seems that {user.mention} has been magically been banned from the server* <:40:1531291907777364000>}"
+    },
+    "unban": {
+      "dm": "{embed}$v{message: {user.mention}}$v{color: #738BDB}$v{description: # Unbanned <:known:1531260107306831872> \n<:idksillydraw:1532735310050496635> You've been Unbanned in **{guild.name}**!}$v{field: Moderator && [*{moderator.name}*]( https://discord.com/users/{moderator.id} ) inline}$v{field: Reason && *{reason}* }$v{field: Misc && Rejoin [here](https://discord.gg/wYkxyMHYm) inline}$v{footer: ----------------------------------------------------}$v{thumbnail: {user.avatar}}"
     }
   },
   "roleBackups": {
@@ -1604,7 +1660,6 @@
       "1528875292100132957"
     ],
     "1408853277470097568": [
-      "1528875292213641258",
       "1528875292100132957"
     ]
   },
@@ -1624,6 +1679,7 @@
   "warnExpires": 1728000000,
   "goodbyeConfig": {
     "message": "{embed}$v{author: {guild.name} && {guild.icon}}$v{color: ffeafc}$v{message: {user.mention}}$v{title: **goodbye, {user}**...}$v{description:\n> **{user}'s roles:**\n> {user.role_list}\n}$v{footer: they were our {user.join_position}th member | {user.id}}",
-    "channelId": "1528875294952521974"
+    "channelId": "1528875294952521974",
+    "enabled": true
   }
 }

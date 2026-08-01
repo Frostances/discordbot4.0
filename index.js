@@ -43,8 +43,8 @@ const { handleBoosterRoleCommand,
         handleBoostRemoved,
         handleBoosterShareButton }                       = require('./modules/boosterRole');
 const { triggerWelcome, triggerGoodbye, triggerBoost,
-        handleSystemCommand, parseEmbedCode,
-        buildVars, buildChannelVars }                   = require('./modules/welcomeSystem');
+        handleSystemCommand }                          = require('./modules/welcomeSystem');
+const { parseEmbedCode, buildWelcomeVars, buildChannelVars } = require('./utils/embedParser');
 const { handleXpGain, handleLevelsCommand }              = require('./modules/levels');
 const { runAutoMod, handleAutoModCommand }               = require('./modules/automod');
 const { handleAntiNukeCommand, setupAntiNukeListeners }  = require('./modules/antinuke');
@@ -1008,13 +1008,13 @@ client.on('messageCreate', async (message) => {
             if (!raw)
                 return message.reply(greedWarn(message.member, 'Provide an embed code.\n**Usage:** `,ce {embed}$v{title: Hello}$v{description: World}$v{color: 5865F2}`'));
 
-            const vars = { ...buildVars(message.member), ...buildChannelVars(message.channel) };
-            const { content, embed, components } = parseEmbedCode(raw, vars);
+            const vars = { ...buildWelcomeVars(message.member), ...buildChannelVars(message.channel) };
+            const { content, embeds, components } = parseEmbedCode(raw, vars, message.guild);
             const payload = {};
             if (content)             payload.content    = content;
-            if (embed)               payload.embeds     = [embed];
+            if (embeds?.length)      payload.embeds     = embeds;
             if (components?.length)  payload.components = components;
-            if (!payload.content && !payload.embeds)
+            if (!payload.content && !payload.embeds?.length)
                 return message.reply(greedWarn(message.member, 'Could not parse that embed code. Make sure it starts with `{embed}$v` and uses the correct format.'));
 
             try {

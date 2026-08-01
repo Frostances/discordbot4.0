@@ -670,6 +670,23 @@
       "status": "active",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 40,
+      "type": "unmute",
+      "targetId": "1278713831345881170",
+      "executorId": "1528881379868152020",
+      "reason": "Auto-unmuted (time expired)",
+      "timestamp": 1785612842993,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -724,7 +741,7 @@
       "lastCrime": null
     },
     "1278713831345881170": {
-      "xp": 3183,
+      "xp": 3384,
       "level": 4,
       "balance": 0,
       "bank": 0,
@@ -938,7 +955,7 @@
         "1420111568300937351": 1463,
         "1431621341760458813": 60,
         "1278713831345881170": 66,
-        "1408853277470097568": 161
+        "1408853277470097568": 166
       }
     },
     "1532867475144708209": {
@@ -1589,15 +1606,15 @@
       },
       "1278713831345881170": {
         "daily": {
-          "2026-08-01": 96
+          "2026-08-01": 106
         },
         "weekly": {
-          "2026-07-27": 96
+          "2026-07-27": 106
         },
         "monthly": {
-          "2026-08": 96
+          "2026-08": 106
         },
-        "total": 96
+        "total": 106
       }
     }
   },
@@ -1660,24 +1677,24 @@
         "cameraOn": false
       },
       "1408853277470097568": {
-        "totalMs": 55460,
+        "totalMs": 309621,
         "daily": {
-          "2026-08-01": 55460
+          "2026-08-01": 309621
         },
         "weekly": {
-          "2026-07-27": 55460
+          "2026-07-27": 309621
         },
         "monthly": {
-          "2026-08": 55460
+          "2026-08": 309621
         },
         "streamMs": 0,
         "cameraMs": 0,
         "streamDaily": {},
         "cameraDaily": {},
-        "lastJoin": 1785611425209,
+        "lastJoin": null,
         "lastStreamJoin": null,
         "lastCameraJoin": null,
-        "inVc": true,
+        "inVc": false,
         "streaming": false,
         "cameraOn": false
       }

@@ -94,6 +94,31 @@ const { handleCustomize } = require('./modules/customize');
 
 const { handleInvokeCommand } = require('./modules/invoke');
 
+const {
+  handleLogCommand,
+  onMessageDelete: logOnMessageDelete,
+  onMessageUpdate: logOnMessageUpdate,
+  onGuildMemberAdd: logOnGuildMemberAdd,
+  onGuildMemberRemove: logOnGuildMemberRemove,
+  onGuildMemberUpdate: logOnGuildMemberUpdate,
+  onRoleCreate: logOnRoleCreate,
+  onRoleDelete: logOnRoleDelete,
+  onRoleUpdate: logOnRoleUpdate,
+  onChannelCreate: logOnChannelCreate,
+  onChannelDelete: logOnChannelDelete,
+  onChannelUpdate: logOnChannelUpdate,
+  onInviteCreate: logOnInviteCreate,
+  onInviteDelete: logOnInviteDelete,
+  onEmojiCreate: logOnEmojiCreate,
+  onEmojiDelete: logOnEmojiDelete,
+  onEmojiUpdate: logOnEmojiUpdate,
+  onVoiceStateUpdate: logOnVoiceStateUpdate,
+} = require('./modules/logging');
+const {
+  trackDelete, trackEdit, trackReactionRemove, trackReactionAdd,
+  handleSnipe, handleEditSnipe, handleReactionSnipe, handleReactionHistory, handleClearSnipe,
+} = require('./modules/snipe');
+
 // ══════════════════════════════════════════════════════════
 // FAKE PERMISSIONS SYSTEM
 // ══════════════════════════════════════════════════════════
@@ -124,6 +149,8 @@ const client = new Client({
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildModeration,
+        GatewayIntentBits.GuildInvites,
+        GatewayIntentBits.GuildEmojisAndStickers,
     ],
     ws: {
         // Makes the bot appear online on mobile (Discord Android)
@@ -1348,6 +1375,16 @@ client.on('messageCreate', async (message) => {
              }
              return handleMusicCommand(message, command, args);
          }
+
+        // ── Logging ──
+        if (command === 'log') return handleLogCommand(message, args);
+
+        // ── Snipe ──
+        if (command === 'snipe') return handleSnipe(message, args);
+        if (command === 'editsnipe') return handleEditSnipe(message);
+        if (command === 'reactionsnipe') return handleReactionSnipe(message);
+        if (command === 'reactionhistory') return handleReactionHistory(message, args);
+        if (command === 'clearsnipe') return handleClearSnipe(message);
 
         // ── Info commands ──
         if (command === 'ping') return handlePing(message);

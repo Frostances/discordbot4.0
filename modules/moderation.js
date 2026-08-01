@@ -203,7 +203,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     try {
       const { sendInvokeDm } = require('./invoke');
       const vars = buildInvokeVars(ctx, target, reason, null, null);
-      await sendInvokeDm(target.user, guild.id, 'kick', vars);
+      await sendInvokeDm(target.user, guild.id, 'kick', vars, guild);
       await target.kick(reason);
       const c = createCase(guild.id, { type: 'kick', targetId: target.id, executorId: authorId, reason });
       const logEmbed = base(COLORS.error).setTitle('Member Kicked')
@@ -270,7 +270,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     try {
       const { sendInvokeDm } = require('./invoke');
       const vars = buildInvokeVars(ctx, target, reason, null, null);
-      await sendInvokeDm(target.user, guild.id, 'softban', vars);
+      await sendInvokeDm(target.user, guild.id, 'softban', vars, guild);
       await target.ban({ deleteMessageSeconds: 604800, reason });
       await guild.bans.remove(target.id, 'Softban — immediately unbanned');
       const c = createCase(guild.id, { type: 'softban', targetId: target.id, executorId: authorId, reason });
@@ -308,7 +308,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     try {
       const { sendInvokeDm } = require('./invoke');
       const vars = buildInvokeVars(ctx, targetUser, reason, null, null);
-      await sendInvokeDm(targetUser, guild.id, 'hardban', vars);
+      await sendInvokeDm(targetUser, guild.id, 'hardban', vars, guild);
       await guild.bans.create(targetUser.id, { deleteMessageSeconds: 604800, reason: 'HARDBAN: ' + reason });
       const hardbans = db.get('hardbans', []);
       if (!hardbans.includes(targetUser.id)) { hardbans.push(targetUser.id); db.set('hardbans', hardbans); }
@@ -342,7 +342,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     try {
       const { sendInvokeDm } = require('./invoke');
       const vars = buildInvokeVars(ctx, target, reason, formatDuration(duration), null);
-      await sendInvokeDm(target.user, guild.id, 'tempban', vars);
+      await sendInvokeDm(target.user, guild.id, 'tempban', vars, guild);
       await target.ban({ reason: 'TEMPBAN [' + durStr + ']: ' + reason });
       const c = createCase(guild.id, { type: 'tempban', targetId: target.id, executorId: authorId, reason, duration: formatDuration(duration), expires });
 
@@ -472,7 +472,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     try {
       const { sendInvokeDm } = require('./invoke');
       const vars = buildInvokeVars(ctx, target, reason, formatDuration(duration), null);
-      await sendInvokeDm(target.user, guild.id, 'timeout', vars);
+      await sendInvokeDm(target.user, guild.id, 'timeout', vars, guild);
       await target.timeout(duration, reason);
       const c = createCase(guild.id, { type: 'timeout', targetId: target.id, executorId: authorId, reason, duration: formatDuration(duration), expires: Date.now() + duration });
       const logEmbed = base(COLORS.warning).setTitle('Member Timed Out')
@@ -536,7 +536,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     try {
       const { sendInvokeDm } = require('./invoke');
       const vars = buildInvokeVars(ctx, target, reason, null, null);
-      await sendInvokeDm(target.user, guild.id, 'warn', vars);
+      await sendInvokeDm(target.user, guild.id, 'warn', vars, guild);
     } catch {}
 
     const escCfg = db.get('warnEscalation', {});

@@ -1,7 +1,7 @@
 const { PermissionFlagsBits } = require('discord.js');
 const { getGuildDb } = require('./database');
 
-// ── Global bot owners — bypass all permission checks in every server ──
+// Global bot owners
 let _owners = null;
 function getBotOwners() {
   if (!_owners) {
@@ -11,17 +11,10 @@ function getBotOwners() {
   return _owners;
 }
 
-/** Returns true if this user is a global bot owner (creator-level access). */
 function isBotOwner(userId) {
   return getBotOwners().includes(String(userId));
 }
 
-/**
- * Returns true if the member is:
- * 1. A global bot owner (creator), or
- * 2. The guild owner, or
- * 3. Has the optional bot-admin role configured via .botadmin set @role
- */
 function isAdmin(member) {
   if (!member) return false;
   if (isBotOwner(member.id ?? member.user?.id)) return true;
@@ -44,63 +37,35 @@ function isStaffOrAdmin(member) {
   return isAdmin(member) || isStaff(member, db);
 }
 
-/**
- * Returns true if the member has a specific Discord permission flag OR is an admin.
- * Checks REAL Discord permissions first, then falls back to FAKE permissions.
- *
- * perm must be a key of PermissionFlagsBits (e.g. 'BanMembers', 'ManageChannels').
- *
- * @param {GuildMember} member
- * @param {string} perm — key of PermissionFlagsBits
- */
 function hasDiscordPerm(member, perm) {
   if (!member) return false;
   if (isAdmin(member)) return true;
-
-  // Check real Discord permission
   const flag = PermissionFlagsBits[perm];
   if (flag && member.permissions.has(flag)) return true;
-
-  // Check fake permission (from fakepermissions module)
   try {
     const { hasFakePermission } = require('./fakepermissions');
-    // Convert PascalCase to snake_case for fake permission lookup
-    const permName = perm.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+    const permName = perm.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/,'');
     if (hasFakePermission(member, permName)) return true;
-  } catch { /* fakepermissions not loaded yet */ }
-
+  } catch {}
   return false;
 }
 
-/**
- * NEW: Check if member has a permission using fake permission system.
- * Preferred way for moderation commands.
- *
- * @param {GuildMember} member
- * @param {string} permName — permission name like 'ban_members', 'kick_members', etc.
- */
 function hasPermission(member, permName) {
   if (!member) return false;
   if (isAdmin(member)) return true;
-
-  // Check fake permission first
   try {
     const { hasFakePermission } = require('./fakepermissions');
     if (hasFakePermission(member, permName)) return true;
-  } catch { /* fakepermissions not loaded yet */ }
-
-  // Check real Discord permission
-  const flagKey = permName.toLowerCase().replace(/_/g, '');
+  } catch {}
+  const flagKey = permName.toLowerCase().replace(/_/g,'');
   for (const [key, value] of Object.entries(PermissionFlagsBits)) {
     if (key.toLowerCase() === flagKey) {
       return member.permissions.has(value);
     }
   }
-
   return false;
 }
 
-// Delegate to restrictcommand module (avoids circular deps — lazy require)
 function checkRestriction(ctx, command) {
   try {
     const { checkRestriction: check } = require('./restrictcommand');
@@ -117,7 +82,7 @@ function isCommandRestricted(member, command) {
 }
 
 // ══════════════════════════════════════════════════════════
-// INVOKE VARIABLE BUILDER (moved here to break circular deps)
+// INVOKE VARIABLE BUILDER
 // ══════════════════════════════════════════════════════════
 function buildInvokeVars(ctx, target, reason, duration, caseId) {
   const authorId = ctx.author?.id || ctx.user?.id;
@@ -125,41 +90,48 @@ function buildInvokeVars(ctx, target, reason, duration, caseId) {
   const modMember = ctx.member;
 
   return {
-    targetMention: target ? `<@${target.id}>` : '',
+    targetMention: target ? '<@' + target.id + '>' : '',
     targetName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
     targetId: target ? target.id : '',
     targetAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
-    userMention: target ? `<@${target.id}>` : '',
+    userMention: target ? '<@' + target.id + '>' : '',
     userName: target ? (target.user?.username || target.username || 'Unknown') : 'Unknown',
     userId: target ? target.id : '',
     userAvatar: target ? (target.user?.displayAvatarURL?.() || target.displayAvatarURL?.() || '') : '',
-    modMention: `<@${authorId}>`,
+    modMention: '<@' + authorId + '>',
     modName: modMember?.user?.username || modMember?.username || 'Unknown',
     modId: authorId,
     modIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
-    moderatorMention: `<@${authorId}>`,
+    moderatorMention: '<@' + authorId + '>',
     moderatorName: modMember?.user?.username || modMember?.username || 'Unknown',
     moderatorId: authorId,
     moderatorIcon: modMember?.user?.displayAvatarURL?.() || modMember?.displayAvatarURL?.() || '',
     guildName: guild?.name || '',
     guildId: guild?.id || '',
     guildIcon: guild?.iconURL?.() || '',
+    guildCount: (guild?.memberCount ?? 0).toString(),
     reason: reason || 'No reason provided',
     caseId: caseId ? '#' + caseId : '',
     duration: duration || '',
   };
 }
 
+// ══════════════════════════════════════════════════════════
+// SEND INVOKE REPLY — uses new unified parser
+// ══════════════════════════════════════════════════════════
 function sendInvokeReply(ctx, guildId, command, target, reason, duration, caseId) {
   try {
     const { getInvokeReply } = require('./invoke');
     const vars = buildInvokeVars(ctx, target, reason, duration, caseId);
-    const invMsg = getInvokeReply(guildId, command, vars);
-    if (invMsg && (invMsg.content || invMsg.embeds?.length)) {
+    const guild = ctx.guild;
+    const invMsg = getInvokeReply(guildId, command, vars, guild);
+    if (invMsg && (invMsg.content || invMsg.embeds?.length || invMsg.components?.length)) {
       if (ctx.editReply) return ctx.editReply(invMsg);
       return ctx.reply(invMsg);
     }
-  } catch { /* invoke module not loaded */ }
+  } catch (err) {
+    // invoke module not loaded or error
+  }
   if (ctx.editReply) return ctx.editReply({ content: '👍', embeds: [], components: [] });
   return ctx.reply('👍');
 }
@@ -170,13 +142,13 @@ function sendInvokeReply(ctx, guildId, command, target, reason, duration, caseId
 function formatTimeLeft(ms) {
   if (ms <= 0) return 'Expired';
   const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s left`;
+  if (s < 60) return s + 's left';
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m left`;
+  if (m < 60) return m + 'm left';
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h left`;
+  if (h < 24) return h + 'h left';
   const d = Math.floor(h / 24);
-  return `${d}d left`;
+  return d + 'd left';
 }
 
 module.exports = {

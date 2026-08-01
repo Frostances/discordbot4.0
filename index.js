@@ -1412,9 +1412,19 @@ client.on('messageCreate', async (message) => {
 //  INTERACTION CREATE
 // ══════════════════════════════════════════════════════════
 // ── Giveaway message delete handler ──
+// ── Giveaway + Snipe + Logging: Message Delete ──
 client.on('messageDelete', async (message) => {
     if (!message.guild) return;
     await handleGiveawayMessageDelete(message, client);
+    trackDelete(message);
+    await logOnMessageDelete(message).catch(() => {});
+});
+
+// ── Snipe + Logging: Message Update ──
+client.on('messageUpdate', async (oldMsg, newMsg) => {
+    if (!oldMsg.guild || oldMsg.author?.bot || oldMsg.content === newMsg.content) return;
+    trackEdit(oldMsg, newMsg);
+    await logOnMessageUpdate(oldMsg, newMsg).catch(() => {});
 });
 
 // ── Giveaway reaction handlers ──
@@ -1623,6 +1633,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     // TOPVC voice/stream/camera tracking
     await trackTopVcVoiceState(oldState, newState, client).catch(() => {});
 
+    // Logging voice state
+    await logOnVoiceStateUpdate(oldState, newState).catch(() => {});
+
     // Track giveaway voice time for active giveaways with required_voice
     const gwUserId = member.id;
     const guildId2 = newState.guild?.id || oldState.guild?.id;
@@ -1646,6 +1659,7 @@ client.on('guildMemberAdd', async (member) => {
     await stickyOnJoin(member).catch(() => {});
     await triggerWelcome(member).catch(() => {});
     await handleAutoRoleJoin(member).catch(() => {});
+    await logOnGuildMemberAdd(member).catch(() => {});
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1655,6 +1669,7 @@ client.on('guildMemberRemove', async (member) => {
     try { stickyOnLeave(member); } catch {}
     try { backupMemberRoles(member); } catch {}
     await triggerGoodbye(member).catch(() => {});
+    await logOnGuildMemberRemove(member).catch(() => {});
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1662,12 +1677,13 @@ client.on('guildMemberRemove', async (member) => {
 // ══════════════════════════════════════════════════════════
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     await onForcedNickUpdate(oldMember, newMember).catch(() => {});
+    await logOnGuildMemberUpdate(oldMember, newMember).catch(() => {});
 
     // Boost detection
     const wasBoosting = !!oldMember.premiumSince;
-    const isBoosting  = !!newMember.premiumSince;
-    if (!wasBoosting && isBoosting)  await triggerBoost(newMember).catch(() => {});
-    if (wasBoosting  && !isBoosting) await handleBoostRemoved(newMember).catch(() => {});
+    const isBoosting = !!newMember.premiumSince;
+    if (!wasBoosting && isBoosting) await triggerBoost(newMember).catch(() => {});
+    if (wasBoosting && !isBoosting) await handleBoostRemoved(newMember).catch(() => {});
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1689,6 +1705,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
         try { await reaction.message.fetch(); } catch { return; }
     }
     await handleReactionAdd(reaction, user).catch(() => {});
+    trackReactionAdd(reaction, user);
 });
 
 client.on('messageReactionRemove', async (reaction, user) => {
@@ -1700,6 +1717,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
         try { await reaction.message.fetch(); } catch { return; }
     }
     await handleReactionRemove(reaction, user).catch(() => {});
+    trackReactionRemove(reaction, user);
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1732,22 +1750,43 @@ client.on('channelCreate', async (channel) => {
 });
 
 client.on('channelCreate', async (channel) => {
-  if (!channel.guild) return;
-  try {
-    await applyMutePermsToNewChannel(channel).catch(() => {});
-    await applyJailPermsToNewChannel(channel).catch(() => {});
-  } catch {}
+    if (!channel.guild) return;
+    try {
+        await applyMutePermsToNewChannel(channel).catch(() => {});
+        await applyJailPermsToNewChannel(channel).catch(() => {});
+    } catch {}
+    await logOnChannelCreate(channel).catch(() => {});
 });
 
 client.on('channelDelete', async (channel) => {
-  if (!channel.guild) return;
-  const db = getGuildDb(channel.guild.id);
-  const unmuteId = db.get('unmuteVcChannelId');
-  if (unmuteId && channel.id === unmuteId) {
-    db.set('unmuteVcChannelId', null);
-    logger.info('UNMUTEVC', `Unmute VC deleted in ${channel.guild.name}, cleared setting.`);
-  }
+    if (!channel.guild) return;
+    const db = getGuildDb(channel.guild.id);
+    const unmuteId = db.get('unmuteVcChannelId');
+    if (unmuteId && channel.id === unmuteId) {
+        db.set('unmuteVcChannelId', null);
+        logger.info('UNMUTEVC', `Unmute VC deleted in ${channel.guild.name}, cleared setting.`);
+    }
+    await logOnChannelDelete(channel).catch(() => {});
 });
+
+// ── Logging: Channel Update ──
+client.on('channelUpdate', async (oldCh, newCh) => {
+    await logOnChannelUpdate(oldCh, newCh).catch(() => {});
+});
+
+// ── Logging: Role Events ──
+client.on('roleCreate', async (role) => await logOnRoleCreate(role).catch(() => {}));
+client.on('roleDelete', async (role) => await logOnRoleDelete(role).catch(() => {}));
+client.on('roleUpdate', async (oldRole, newRole) => await logOnRoleUpdate(oldRole, newRole).catch(() => {}));
+
+// ── Logging: Invite Events ──
+client.on('inviteCreate', async (invite) => await logOnInviteCreate(invite).catch(() => {}));
+client.on('inviteDelete', async (invite) => await logOnInviteDelete(invite).catch(() => {}));
+
+// ── Logging: Emoji Events ──
+client.on('emojiCreate', async (emoji) => await logOnEmojiCreate(emoji).catch(() => {}));
+client.on('emojiDelete', async (emoji) => await logOnEmojiDelete(emoji).catch(() => {}));
+client.on('emojiUpdate', async (oldEmoji, newEmoji) => await logOnEmojiUpdate(oldEmoji, newEmoji).catch(() => {}));
 
 
 // ══════════════════════════════════════════════════════════

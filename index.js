@@ -118,6 +118,8 @@ const {
   trackDelete, trackEdit, trackReactionRemove, trackReactionAdd,
   handleSnipe, handleEditSnipe, handleReactionSnipe, handleReactionHistory, handleClearSnipe,
 } = require('./modules/snipe');
+const { handleTimerCommand } = require('./modules/timers');
+const { handleCounterCommand, updateAllCounters } = require('./modules/counters');
 
 // ══════════════════════════════════════════════════════════
 // FAKE PERMISSIONS SYSTEM
@@ -986,10 +988,12 @@ const ALIASES = {
     tt: 'ticket', an: 'antinuke', ar: 'antiraid', am: 'automod',
     vm: 'voicemaster',
     vsm: 'vcservermute',
+    s: 'snipe',
+    cs: 'clearsnipe',
      // Music
      p: 'play',
      q: 'queue',
-     s: 'skip',
+     // s: 'skip',  // disabled — conflicts with snipe alias
      vol: 'volume',
      ff: 'fastforward',
      rw: 'rewind',
@@ -1386,6 +1390,12 @@ client.on('messageCreate', async (message) => {
         if (command === 'reactionhistory') return handleReactionHistory(message, args);
         if (command === 'clearsnipe') return handleClearSnipe(message);
 
+        // ── Timer ──
+        if (command === 'timer') return handleTimerCommand(message, args);
+
+        // ── Counter ──
+        if (command === 'counter') return handleCounterCommand(message, args);
+
         // ── Info commands ──
         if (command === 'ping') return handlePing(message);
 
@@ -1425,15 +1435,6 @@ client.on('messageUpdate', async (oldMsg, newMsg) => {
     if (!oldMsg.guild || oldMsg.author?.bot || oldMsg.content === newMsg.content) return;
     trackEdit(oldMsg, newMsg);
     await logOnMessageUpdate(oldMsg, newMsg).catch(() => {});
-});
-
-// ── Giveaway reaction handlers ──
-client.on('messageReactionAdd', async (reaction, user) => {
-  await handleGiveawayReactionAdd(reaction, user, client);
-});
-
-client.on('messageReactionRemove', async (reaction, user) => {
-  await handleGiveawayReactionRemove(reaction, user, client);
 });
 
 client.on('interactionCreate', async (interaction) => {
@@ -1584,7 +1585,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-// ════════════════════════════════════════════════════���═════
+// ═══════════════════════════════════════════════════════════════
 //  VOICE STATE UPDATE
 // ══════════════════════════════════════════════════════════
 client.on('voiceStateUpdate', async (oldState, newState) => {
@@ -1789,7 +1790,6 @@ client.on('emojiDelete', async (emoji) => await logOnEmojiDelete(emoji).catch(()
 client.on('emojiUpdate', async (oldEmoji, newEmoji) => await logOnEmojiUpdate(oldEmoji, newEmoji).catch(() => {}));
 
 
-// ══════════════════════════════════════════════════════════
 //  READY
 // ══════════════════════════════════════════════════════════
 client.once('clientReady', async () => {
@@ -1840,6 +1840,11 @@ client.user.setPresence({ status: 'online', activities: [{ name: 'x', type: Acti
     setTimeout(() => {
         for (const guild of client.guilds.cache.values()) updateVoiceLeaderboard(guild).catch(() => {});
     }, 5000);
+
+    // Counter updates every 10 minutes
+    setInterval(() => {
+        for (const guild of client.guilds.cache.values()) updateAllCounters(guild).catch(() => {});
+    }, 10 * 60 * 1000);
 
     // TOPVC leaderboard refresh every 1 minute
     setInterval(() => {

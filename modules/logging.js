@@ -43,8 +43,12 @@ async function getOrCreateWebhook(channel, cfg) {
     // Try cache first
     if (cachedId && webhookCache.has(cachedId)) {
         const wh = webhookCache.get(cachedId);
-        try { await wh.send({ content: null, embeds: [] }); } catch { webhookCache.delete(cachedId); }
-        else return wh;
+        try { 
+            await wh.send({ content: null, embeds: [] }); 
+            return wh;
+        } catch { 
+            webhookCache.delete(cachedId); 
+        }
     }
 
     // Try existing webhooks

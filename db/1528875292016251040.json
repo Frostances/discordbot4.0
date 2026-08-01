@@ -642,8 +642,8 @@
   },
   "users": {
     "1410668779347771402": {
-      "xp": 13779,
-      "level": 6,
+      "xp": 14843,
+      "level": 7,
       "balance": 0,
       "bank": 0,
       "warnings": [],
@@ -862,7 +862,7 @@
       "requiredVoiceSecs": 20,
       "gwMsgCounts": {},
       "gwVoiceSecs": {
-        "1410668779347771402": 4898,
+        "1410668779347771402": 5158,
         "1371931756692897893": 3394,
         "820324513488699404": 61,
         "1420111568300937351": 1463,
@@ -1505,17 +1505,15 @@
     "1528875292016251040": {
       "1410668779347771402": {
         "daily": {
-          "2026-07-31": 57,
-          "2026-08-01": 37
+          "2026-08-01": 33
         },
         "weekly": {
-          "2026-07-27": 94
+          "2026-07-27": 33
         },
         "monthly": {
-          "2026-07": 57,
-          "2026-08": 37
+          "2026-08": 33
         },
-        "total": 94
+        "total": 33
       }
     }
   },
@@ -1525,27 +1523,29 @@
     "streamsEnabled": true
   },
   "topvcMessages": {
-    "voiceTimeMsgId": "1532865317422764265"
+    "voiceTimeMsgId": "1533081170516906068"
   },
   "vcStats": {
     "1528875292016251040": {
       "1410668779347771402": {
-        "totalMs": 2550713,
+        "totalMs": 413747,
         "daily": {
-          "2026-07-31": 1215601,
-          "2026-08-01": 1335112
+          "2026-08-01": 413747
         },
         "weekly": {
-          "2026-07-27": 2550713
+          "2026-07-27": 413747
         },
         "monthly": {
-          "2026-07": 1215601,
-          "2026-08": 1335112
+          "2026-08": 413747
         },
-        "streamMs": 0,
-        "cameraMs": 0,
-        "streamDaily": {},
-        "cameraDaily": {},
+        "streamMs": 72840,
+        "cameraMs": 151316,
+        "streamDaily": {
+          "2026-08-01": 72840
+        },
+        "cameraDaily": {
+          "2026-08-01": 151316
+        },
         "lastJoin": null,
         "lastStreamJoin": null,
         "lastCameraJoin": null,
@@ -1593,5 +1593,9 @@
     "jailChannelId": "1532832978521030938",
     "roleId": "1532832966001164405"
   },
-  "warnExpires": 1728000000
+  "warnExpires": 1728000000,
+  "goodbyeConfig": {
+    "message": "{embed}$v{author: {guild.name} && {guild.icon}}$v{color: ffeafc}$v{message: {user.mention}}$v{title: **goodbye, {user}**...}$v{description:\n> **{user}'s roles:**\n> {user.role_list}\n}$v{footer: they were our {user.join_position}th member | {user.id}}",
+    "channelId": "1528875294952521974"
+  }
 }

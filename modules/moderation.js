@@ -34,6 +34,9 @@ const { handleRemind } = require('./reminders');
 const { handleNaughty, handlePermissions, handleDump, handleNewMembers, handleClearInvites } = require('./channeltools');
 const { handleNuke } = require('./nuke');
 
+// FIX: Import invoke helpers that were missing (caused ReferenceError)
+const { buildInvokeVars, sendInvokeReply } = require('./helpers');
+
 // ──────────────────────────────────────────────────────────
 // CONFIRMATION HELPER
 // ──────────────────────────────────────────────────────────
@@ -57,10 +60,6 @@ async function askConfirmation(ctx, embed) {
     col.on('end', (_, reason) => { if (reason === 'time') { msg.edit({ components: [] }).catch(()=>{}); resolve(false); } });
   });
 }
-
-// ──────────────────────────────────────────────────────────
-// INVOKE HELPER — sends custom reply or fallback
-
 
 // ──────────────────────────────────────────────────────────
 // TIME LEFT FORMATTER
@@ -168,11 +167,11 @@ async function handleTimeoutList(ctx, client) {
     return ctx.reply({ content: '✅ No members currently muted/timed out.' });
   }
 
-  const pages = chunk(entries, 5).map((page, idx) => {
-    const lines = page.map((e, i) => {
-      const globalIdx = idx * 5 + i + 1;
+  const pages = chunk(entries, 5).map((page, i) => {
+    const lines = page.map((e, n) => {
+      const globalIdx = i * 5 + n + 1;
       return `${globalIdx}- ${e.user.username} - ${e.punishments} - mod: ${e.mod} - reason: ${e.reason}`;
-    }).join('\n');
+    }).join('\\n');
     return {
       title: `🔇 Muted/Timed Out Members [${entries.length}]`,
       description: lines,
@@ -182,7 +181,6 @@ async function handleTimeoutList(ctx, client) {
 
   return sendPaginated(ctx.channel || ctx, pages, ctx.author?.id || ctx.user?.id);
 }
-
 
 async function handleModerationCommand(ctx, command, args, client) {
   const { isStaffOrAdmin, isAdmin, checkRestriction, hasDiscordPerm } = require('./helpers');
@@ -204,13 +202,13 @@ async function handleModerationCommand(ctx, command, args, client) {
     const target = ctx.mentions?.members?.first();
     if (!target) return ctx.reply({ content: '❌ Mention a user to kick.', ephemeral: true });
     if (!target.kickable) return ctx.reply({ content: '❌ I cannot kick that user (higher role or missing permissions).', ephemeral: true });
-    const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim() || 'No reason provided';
+    const reason = args.slice(1).join(' ').replace(/<@!?\\d+>/g, '').trim() || 'No reason provided';
 
     // Booster confirmation
     if (target.premiumSince) {
       const boosterEmbed = base(COLORS.warning)
         .setTitle('⚠️ Target is a Server Booster')
-        .setDescription(`**${target.user.username}** is currently **boosting this server**!\nAre you sure you want to kick them?\n\n**Reason:** ${reason}`);
+        .setDescription(`**${target.user.username}** is currently **boosting this server**!\\nAre you sure you want to kick them?\\n\\n**Reason:** ${reason}`);
       const confirmed = await askConfirmation(ctx, boosterEmbed);
       if (!confirmed) {
         const cancelMsg = { content: '❌ Kick cancelled.', embeds: [], components: [] };
@@ -244,18 +242,18 @@ async function handleModerationCommand(ctx, command, args, client) {
     if (!isStaffOrAdmin(ctx.member) && !hasFakePerm(ctx.member, 'ban_members'))
       return ctx.reply({ content: '❌ No permission.', ephemeral: true });
     const target = ctx.mentions?.members?.first() ||
-      (args[0]?.match(/^\d+$/) ? await client.users.fetch(args[0]).catch(() => null) : null);
+      (args[0]?.match(/^\\d+$/) ? await client.users.fetch(args[0]).catch(() => null) : null);
     if (!target) return ctx.reply({ content: '❌ Mention a user or provide their ID.', ephemeral: true });
     const targetUser = target.user || target;
     const targetMember = target.user ? target : null;
-    const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim() || 'No reason provided';
+    const reason = args.slice(1).join(' ').replace(/<@!?\\d+>/g, '').trim() || 'No reason provided';
     if (targetMember?.bannable === false || target.bannable === false) return ctx.reply({ content: '❌ I cannot ban that user.', ephemeral: true });
 
     // Booster-only confirmation
     if (targetMember?.premiumSince) {
       const boosterEmbed = base(COLORS.warning)
         .setTitle('⚠️ Target is a Server Booster')
-        .setDescription(`**${targetUser.username}** is currently **boosting this server**!\nAre you sure you want to ban them?\n\n**Reason:** ${reason}`);
+        .setDescription(`**${targetUser.username}** is currently **boosting this server**!\\nAre you sure you want to ban them?\\n\\n**Reason:** ${reason}`);
       if (!!ctx.deferReply) await ctx.deferReply();
       const confirmed = await askConfirmation(ctx, boosterEmbed);
       if (!confirmed) {
@@ -289,7 +287,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
     const target = ctx.mentions?.members?.first();
     if (!target) return ctx.reply({ content: '❌ Mention a user.', ephemeral: true });
-    const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim() || 'Softban — message history cleared';
+    const reason = args.slice(1).join(' ').replace(/<@!?\\d+>/g, '').trim() || 'Softban — message history cleared';
     try {
       const { sendInvokeDm } = require('./invoke');
       const vars = buildInvokeVars(ctx, target, reason, null, null);
@@ -316,17 +314,17 @@ async function handleModerationCommand(ctx, command, args, client) {
     if (!isAdmin(authorId) && !ctx.member.permissions.has(PermissionFlagsBits.Administrator))
       return ctx.reply({ content: '❌ Administrator only.', ephemeral: true });
     const target = ctx.mentions?.members?.first() ||
-      (args[0]?.match(/^\d+$/) ? await client.users.fetch(args[0]).catch(() => null) : null);
+      (args[0]?.match(/^\\d+$/) ? await client.users.fetch(args[0]).catch(() => null) : null);
     if (!target) return ctx.reply({ content: '❌ Mention a user or provide their ID.', ephemeral: true });
     const targetUser = target.user || target;
     const targetMember = target.user ? target : null;
-    const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim() || 'Hardban';
+    const reason = args.slice(1).join(' ').replace(/<@!?\\d+>/g, '').trim() || 'Hardban';
 
     // Booster confirmation
     if (targetMember?.premiumSince) {
       const boosterEmbed = base(COLORS.warning)
         .setTitle('⚠️ Target is a Server Booster')
-        .setDescription(`**${targetUser.username}** is currently **boosting this server**!\nAre you sure you want to hardban them?\n\n**Reason:** ${reason}`);
+        .setDescription(`**${targetUser.username}** is currently **boosting this server**!\\nAre you sure you want to hardban them?\\n\\n**Reason:** ${reason}`);
       const confirmed = await askConfirmation(ctx, boosterEmbed);
       if (!confirmed) return ctx.channel.send('❌ Hardban cancelled.');
     }
@@ -363,7 +361,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     const cleanArgs = args.filter(a => !a.startsWith('<@'));
     const durStr = cleanArgs[0];
     const duration = parseDuration(durStr);
-    if (!duration) return ctx.reply({ content: '❌ Usage: `.tempban @user <duration> [reason]`\nTime: `10m` `2h` `7d`', ephemeral: true });
+    if (!duration) return ctx.reply({ content: '❌ Usage: `.tempban @user <duration> [reason]`\\nTime: `10m` `2h` `7d`', ephemeral: true });
 
     const reason = cleanArgs.slice(1).join(' ') || 'Temporary ban';
     const expires = Date.now() + duration;
@@ -390,7 +388,7 @@ async function handleModerationCommand(ctx, command, args, client) {
           { name: '👤 User', value: `${target.user} (${target.id})`, inline: true },
           { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
           { name: '⏱️ Duration', value: formatDuration(duration), inline: true },
-          { name: '⌛ Expires', value: `<t:${Math.floor(expires / 1000)}:R>`, inline: true },
+          { name: '⌛ Expires', value: `<t:${Math.floor(expires/1000)}:R>`, inline: true },
           { name: '📝 Reason', value: reason },
           { name: '🏷️ Case', value: `#${c.id}`, inline: true },
         );
@@ -479,7 +477,7 @@ async function handleModerationCommand(ctx, command, args, client) {
 
     const pages = chunk(list, 10).map((page, i) => ({
       title: `🔨 ${command === 'recentban' ? 'Recent Bans' : 'Ban List'} [${bans.size}]`,
-      description: page.map((b, n) => `**${n + 1}.** ${b.user.tag} (\`${b.user.id}\`)\n↳ ${b.reason || 'No reason'}`).join('\n\n'),
+      description: page.map((b, n) => `**${n + 1}.** ${b.user.tag} (\\`${b.user.id}\\`)\\n↳ ${b.reason || 'No reason'}`).join('\\n\\n'),
       color: COLORS.error,
     }));
     return sendPaginated(ctx.channel, pages, authorId);
@@ -502,7 +500,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     const cleanArgs = args.filter(a => !a.startsWith('<@'));
     const durStr = cleanArgs[0] || '10m';
     const duration = parseDuration(durStr);
-    if (!duration) return ctx.reply({ content: '❌ Usage: `.timeout @user <duration> [reason]`\nTime: `1m` `1h` `1d`', ephemeral: true });
+    if (!duration) return ctx.reply({ content: '❌ Usage: `.timeout @user <duration> [reason]`\\nTime: `1m` `1h` `1d`', ephemeral: true });
     if (duration > 28 * 24 * 60 * 60 * 1000) return ctx.reply({ content: '❌ Max timeout is 28 days.', ephemeral: true });
 
     const reason = cleanArgs.slice(1).join(' ') || 'No reason provided';
@@ -517,7 +515,7 @@ async function handleModerationCommand(ctx, command, args, client) {
           { name: '👤 User', value: `${target.user} (${target.id})`, inline: true },
           { name: '👮 Moderator', value: `<@${authorId}>`, inline: true },
           { name: '⏱️ Duration', value: formatDuration(duration), inline: true },
-          { name: '⌛ Expires', value: `<t:${Math.floor((Date.now() + duration) / 1000)}:R>`, inline: true },
+          { name: '⌛ Expires', value: `<t:${Math.floor((Date.now() + duration)/1000)}:R>`, inline: true },
           { name: '📝 Reason', value: reason },
           { name: '🏷️ Case', value: `#${c.id}`, inline: true },
         );
@@ -533,7 +531,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
     const target = ctx.mentions?.members?.first();
     if (!target) return ctx.reply({ content: '❌ Mention a user.', ephemeral: true });
-    const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim() || 'Timeout removed';
+    const reason = args.slice(1).join(' ').replace(/<@!?\\d+>/g, '').trim() || 'Timeout removed';
     try {
       await target.timeout(null, reason);
       const c = createCase(guild.id, { type: 'untimeout', targetId: target.id, executorId: authorId, reason });
@@ -563,7 +561,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     if (!isStaffOrAdmin(ctx.member)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
     const target = ctx.mentions?.members?.first();
     if (!target) return ctx.reply({ content: '❌ Mention a user.', ephemeral: true });
-    const reason = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim();
+    const reason = args.slice(1).join(' ').replace(/<@!?\\d+>/g, '').trim();
     if (!reason) return ctx.reply({ content: '❌ Provide a reason: `.warn @user <reason>`', ephemeral: true });
 
     // Check warn expiration setting
@@ -603,10 +601,8 @@ async function handleModerationCommand(ctx, command, args, client) {
       );
     await sendModLog(guild, logEmbed);
 
-    // Clean short embed response
-    const warnEmbed = base(COLORS.warning)
-      .setDescription(`⚠️ ${target} has been warned for **${reason}**, this is their **${total}${total === 1 ? 'st' : total === 2 ? 'nd' : total === 3 ? 'rd' : 'th'}** warning!`);
-    return ctx.reply({ embeds: [warnEmbed] });
+    // FIX: Use invoke reply system instead of hardcoded embed
+    return sendInvokeReply(ctx, guild.id, 'warn', target, reason, null, c.id);
   }
 
   // ════════════════════════════════════════════
@@ -727,7 +723,7 @@ async function handleModerationCommand(ctx, command, args, client) {
     const notes = db.get('notes', {});
 
     if (sub === 'add' && target) {
-      const text = args.slice(2).join(' ').replace(/<@!?\d+>/g, '').trim();
+      const text = args.slice(2).join(' ').replace(/<@!?\\d+>/g, '').trim();
       if (!text) return ctx.reply({ content: '❌ Provide note text.' });
       if (!notes[target.id]) notes[target.id] = [];
       notes[target.id].push({ text, by: authorId, at: Date.now() });
@@ -746,19 +742,19 @@ async function handleModerationCommand(ctx, command, args, client) {
       db.set('notes', notes);
       return ctx.reply({ content: `✅ All notes cleared for **${target.username}**.` });
     }
-    const noteTarget = target || (args[0]?.match(/^\d+$/) ? null : null);
+    const noteTarget = target || (args[0]?.match(/^\\d+$/) ? null : null);
     if (target) {
       const userNotes = notes[target.id] || [];
       if (!userNotes.length) return ctx.reply({ content: `No notes for **${target.username}**.` });
       const pages = chunk(userNotes, 8).map(pg => ({
         title: `📝 Notes — ${target.username}`,
-        description: pg.map((n, i) => `**${i + 1}.** ${n.text}\n↳ by <@${n.by}> <t:${Math.floor(n.at / 1000)}:R>`).join('\n\n'),
+        description: pg.map((n, i) => `**${i + 1}.** ${n.text}\\n↳ by <@${n.by}> <t:${Math.floor(n.at/1000)}:R>`).join('\\n\\n'),
         color: COLORS.primary,
       }));
       return sendPaginated(ctx.channel, pages, authorId);
     }
     if (command === 'note' && target) {
-      const text = args.slice(1).join(' ').replace(/<@!?\d+>/g, '').trim();
+      const text = args.slice(1).join(' ').replace(/<@!?\\d+>/g, '').trim();
       if (!text) return ctx.reply({ content: '❌ Provide note text: `.note @user <text>`' });
       if (!notes[target.id]) notes[target.id] = [];
       notes[target.id].push({ text, by: authorId, at: Date.now() });
@@ -790,7 +786,7 @@ async function handleModerationCommand(ctx, command, args, client) {
   if (command === 'caselog') return cmdCase(ctx, args, client);
   if (command === 'moderationhistory') return cmdHistory(ctx, args, client);
 
-  return ctx.reply({ content: `❌ Unknown moderation command: \`${command}\`.` });
+  return ctx.reply({ content: `❌ Unknown moderation command: \\`${command}\\`.` });
 }
 
 // ──────────────────────────────────────────────────────────

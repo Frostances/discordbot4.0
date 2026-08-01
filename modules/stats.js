@@ -46,11 +46,13 @@ function formatDuration(ms) {
  * Validate that the user's DB state matches their actual Discord voice state.
  * If they left while the bot was offline, this fixes stale inVc/streaming/cameraOn flags
  * and flushes any accumulated time to the daily buckets.
+ * Returns true if state was fixed (data was mutated).
  */
 function validateVcState(guild, userId, userData) {
   const member = guild.members.cache.get(userId);
   const voiceChannel = member?.voice?.channel;
   const now = Date.now();
+  let fixed = false;
 
   // If DB says they're in VC but they're actually not — flush and reset
   if (userData.inVc && !voiceChannel) {
@@ -82,7 +84,7 @@ function validateVcState(guild, userId, userData) {
     userData.lastJoin = null;
     userData.lastStreamJoin = null;
     userData.lastCameraJoin = null;
-    return true;
+    fixed = true;
   }
 
   // If they ARE in a voice channel, verify streaming/camera flags match reality
@@ -97,6 +99,7 @@ function validateVcState(guild, userId, userData) {
       userData.streamDaily[today] = (userData.streamDaily[today] || 0) + duration;
       userData.streaming = false;
       userData.lastStreamJoin = null;
+      fixed = true;
     }
     if (!userData.streaming && isStreaming) {
       userData.streaming = true;
@@ -110,6 +113,7 @@ function validateVcState(guild, userId, userData) {
       userData.cameraDaily[today] = (userData.cameraDaily[today] || 0) + duration;
       userData.cameraOn = false;
       userData.lastCameraJoin = null;
+      fixed = true;
     }
     if (!userData.cameraOn && isCameraOn) {
       userData.cameraOn = true;
@@ -117,7 +121,7 @@ function validateVcState(guild, userId, userData) {
     }
   }
 
-  return false;
+  return fixed;
 }
 
 /**
@@ -141,10 +145,13 @@ function getDailyTotal(guild, userId, userData, period, field) {
     return total;
   }
   if (period === 'month') {
-    const monthPrefix = getMonthKey();
+    // FIX: Use last 30 days instead of calendar month so month is always >= week
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 29);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
     let total = 0;
     for (const [date, ms] of Object.entries(obj)) {
-      if (date.startsWith(monthPrefix)) total += ms;
+      if (date >= cutoffStr) total += ms;
     }
     return total;
   }
@@ -185,13 +192,15 @@ function addLiveTime(guild, userId, userData, field, period) {
     return 0;
   }
   if (period === 'month') {
-    const monthPrefix = getMonthKey();
+    // FIX: Use last 30 days cutoff to match getDailyTotal
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 29);
     const sessionStart = field === 'daily' ? userData.lastJoin :
       field === 'streamDaily' ? userData.lastStreamJoin :
       field === 'cameraDaily' ? userData.lastCameraJoin : null;
     if (sessionStart) {
       const sessionStartStr = new Date(sessionStart).toISOString().split('T')[0];
-      if (sessionStartStr.startsWith(monthPrefix)) return extra;
+      if (sessionStartStr >= cutoff.toISOString().split('T')[0]) return extra;
     }
     return 0;
   }
@@ -239,11 +248,23 @@ async function handleVoiceTimeStats(message, args) {
   const target = message.mentions.members?.first() || message.member;
   const db = getGuildDb(message.guild.id);
   const stats = db.get('vcStats', {});
-  const userData = (stats[message.guild.id] || {})[target.id] || {};
+  if (!stats[message.guild.id]) stats[message.guild.id] = {};
+  if (!stats[message.guild.id][target.id]) {
+    stats[message.guild.id][target.id] = {
+      totalMs: 0, daily: {}, weekly: {}, monthly: {},
+      streamMs: 0, cameraMs: 0, streamDaily: {}, cameraDaily: {},
+      lastJoin: null, lastStreamJoin: null, lastCameraJoin: null,
+      inVc: false, streaming: false, cameraOn: false,
+    };
+  }
+  const userData = stats[message.guild.id][target.id];
 
   const todayMs = getDailyTotal(message.guild, target.id, userData, 'today', 'daily') + addLiveTime(message.guild, target.id, userData, 'daily', 'today');
   const weekMs = getDailyTotal(message.guild, target.id, userData, 'week', 'daily') + addLiveTime(message.guild, target.id, userData, 'daily', 'week');
   const monthMs = getDailyTotal(message.guild, target.id, userData, 'month', 'daily') + addLiveTime(message.guild, target.id, userData, 'daily', 'month');
+
+  // FIX: Save any state fixes (stale inVc flushes) back to DB so they persist
+  db.set('vcStats', stats);
 
   const embed = await buildStatsEmbed('Voice Time', '\uD83C\uDF99', '#5865F2', target, todayMs, weekMs, monthMs, formatDuration);
   return message.reply({ embeds: [embed] });
@@ -267,11 +288,23 @@ async function handleStreamTimeStats(message, args) {
   const target = message.mentions.members?.first() || message.member;
   const db = getGuildDb(message.guild.id);
   const stats = db.get('vcStats', {});
-  const userData = (stats[message.guild.id] || {})[target.id] || {};
+  if (!stats[message.guild.id]) stats[message.guild.id] = {};
+  if (!stats[message.guild.id][target.id]) {
+    stats[message.guild.id][target.id] = {
+      totalMs: 0, daily: {}, weekly: {}, monthly: {},
+      streamMs: 0, cameraMs: 0, streamDaily: {}, cameraDaily: {},
+      lastJoin: null, lastStreamJoin: null, lastCameraJoin: null,
+      inVc: false, streaming: false, cameraOn: false,
+    };
+  }
+  const userData = stats[message.guild.id][target.id];
 
   const todayMs = getDailyTotal(message.guild, target.id, userData, 'today', 'streamDaily') + addLiveTime(message.guild, target.id, userData, 'streamDaily', 'today');
   const weekMs = getDailyTotal(message.guild, target.id, userData, 'week', 'streamDaily') + addLiveTime(message.guild, target.id, userData, 'streamDaily', 'week');
   const monthMs = getDailyTotal(message.guild, target.id, userData, 'month', 'streamDaily') + addLiveTime(message.guild, target.id, userData, 'streamDaily', 'month');
+
+  // FIX: Save any state fixes back to DB
+  db.set('vcStats', stats);
 
   const embed = await buildStatsEmbed('Stream Time', '\uD83D\uDCE1', '#FF69B4', target, todayMs, weekMs, monthMs, formatDuration);
   return message.reply({ embeds: [embed] });
@@ -281,11 +314,23 @@ async function handleCameraTimeStats(message, args) {
   const target = message.mentions.members?.first() || message.member;
   const db = getGuildDb(message.guild.id);
   const stats = db.get('vcStats', {});
-  const userData = (stats[message.guild.id] || {})[target.id] || {};
+  if (!stats[message.guild.id]) stats[message.guild.id] = {};
+  if (!stats[message.guild.id][target.id]) {
+    stats[message.guild.id][target.id] = {
+      totalMs: 0, daily: {}, weekly: {}, monthly: {},
+      streamMs: 0, cameraMs: 0, streamDaily: {}, cameraDaily: {},
+      lastJoin: null, lastStreamJoin: null, lastCameraJoin: null,
+      inVc: false, streaming: false, cameraOn: false,
+    };
+  }
+  const userData = stats[message.guild.id][target.id];
 
   const todayMs = getDailyTotal(message.guild, target.id, userData, 'today', 'cameraDaily') + addLiveTime(message.guild, target.id, userData, 'cameraDaily', 'today');
   const weekMs = getDailyTotal(message.guild, target.id, userData, 'week', 'cameraDaily') + addLiveTime(message.guild, target.id, userData, 'cameraDaily', 'week');
   const monthMs = getDailyTotal(message.guild, target.id, userData, 'month', 'cameraDaily') + addLiveTime(message.guild, target.id, userData, 'cameraDaily', 'month');
+
+  // FIX: Save any state fixes back to DB
+  db.set('vcStats', stats);
 
   const embed = await buildStatsEmbed('Camera Time', '\uD83D\uDCF7', '#FF8C00', target, todayMs, weekMs, monthMs, formatDuration);
   return message.reply({ embeds: [embed] });

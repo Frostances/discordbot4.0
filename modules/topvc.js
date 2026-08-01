@@ -103,11 +103,13 @@ function getOrCreateUserStats(db, guildId, userId) {
  * Validate that the user's DB state matches their actual Discord voice state.
  * If they left while the bot was offline, this fixes stale inVc/streaming/cameraOn flags
  * and flushes any accumulated time to the daily buckets.
+ * Returns true if state was fixed (data was mutated).
  */
 function validateVcState(guild, userId, userData) {
   const member = guild.members.cache.get(userId);
   const voiceChannel = member?.voice?.channel;
   const now = Date.now();
+  let fixed = false;
 
   // If DB says they're in VC but they're actually not — flush and reset
   if (userData.inVc && !voiceChannel) {
@@ -139,7 +141,7 @@ function validateVcState(guild, userId, userData) {
     userData.lastJoin = null;
     userData.lastStreamJoin = null;
     userData.lastCameraJoin = null;
-    return true; // state was fixed
+    fixed = true;
   }
 
   // If they ARE in a voice channel, verify streaming/camera flags match reality
@@ -155,6 +157,7 @@ function validateVcState(guild, userId, userData) {
       userData.streamDaily[today] = (userData.streamDaily[today] || 0) + duration;
       userData.streaming = false;
       userData.lastStreamJoin = null;
+      fixed = true;
     }
     if (!userData.streaming && isStreaming) {
       userData.streaming = true;
@@ -169,6 +172,7 @@ function validateVcState(guild, userId, userData) {
       userData.cameraDaily[today] = (userData.cameraDaily[today] || 0) + duration;
       userData.cameraOn = false;
       userData.lastCameraJoin = null;
+      fixed = true;
     }
     if (!userData.cameraOn && isCameraOn) {
       userData.cameraOn = true;
@@ -176,30 +180,26 @@ function validateVcState(guild, userId, userData) {
     }
   }
 
-  return false;
+  return fixed;
 }
 
 /**
- * Get the LIVE total for a user including current session.
+ * Get ONLY the current live session time (not all-time total).
  * Validates actual Discord state first to fix stale flags.
  */
 function getLiveTotal(guild, userId, userData, field) {
   validateVcState(guild, userId, userData);
   const now = Date.now();
-  let total = 0;
-  for (const ms of Object.values(userData[field] || {})) {
-    total += ms;
-  }
   if (field === 'daily' && userData.inVc && userData.lastJoin) {
-    total += (now - userData.lastJoin);
+    return now - userData.lastJoin;
   }
   if (field === 'streamDaily' && userData.streaming && userData.lastStreamJoin) {
-    total += (now - userData.lastStreamJoin);
+    return now - userData.lastStreamJoin;
   }
   if (field === 'cameraDaily' && userData.cameraOn && userData.lastCameraJoin) {
-    total += (now - userData.lastCameraJoin);
+    return now - userData.lastCameraJoin;
   }
-  return total;
+  return 0;
 }
 
 function get7DayTotal(guild, userId, userData, field) {
@@ -353,7 +353,7 @@ async function buildVoiceTimeLeaderboard(guild, db) {
       for (const [date, ms] of Object.entries(data.daily || {})) {
         if (date >= cutoff) total7d += ms;
       }
-      // Validate actual Discord state before adding live time
+      // Add ONLY current live session time (getLiveTotal now returns live time only, not all-time)
       total7d += getLiveTotal(guild, uid, data, 'daily');
       return { uid, total7d };
     })
@@ -389,7 +389,7 @@ async function buildStreamsLeaderboard(guild, db) {
       for (const [date, ms] of Object.entries(data.cameraDaily || {})) {
         if (date >= cutoff) total7d += ms;
       }
-      // Validate actual Discord state before adding live time
+      // Add ONLY current live session time
       total7d += getLiveTotal(guild, uid, data, 'streamDaily');
       total7d += getLiveTotal(guild, uid, data, 'cameraDaily');
       return { uid, total7d };

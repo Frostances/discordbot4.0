@@ -687,6 +687,23 @@
       "status": "active",
       "edited": false,
       "editHistory": []
+    },
+    {
+      "id": 41,
+      "type": "unlock",
+      "targetId": "1530947077788536943",
+      "executorId": "1278713831345881170",
+      "reason": "Channel unlocked",
+      "timestamp": 1785796493236,
+      "guildId": "1528875292016251040",
+      "duration": null,
+      "expires": null,
+      "evidence": [],
+      "proof": [],
+      "extra": {},
+      "status": "active",
+      "edited": false,
+      "editHistory": []
     }
   ],
   "notes": {},
@@ -741,7 +758,7 @@
       "lastCrime": null
     },
     "1278713831345881170": {
-      "xp": 4637,
+      "xp": 5330,
       "level": 4,
       "balance": 0,
       "bank": 0,
@@ -765,8 +782,20 @@
       "lastCrime": null
     },
     "1408853277470097568": {
-      "xp": 355,
-      "level": 1,
+      "xp": 787,
+      "level": 2,
+      "balance": 0,
+      "bank": 0,
+      "warnings": [],
+      "inventory": [],
+      "lastDaily": null,
+      "lastWeekly": null,
+      "lastWork": null,
+      "lastCrime": null
+    },
+    "1508447915352391751": {
+      "xp": 61,
+      "level": 0,
       "balance": 0,
       "bank": 0,
       "warnings": [],
@@ -1619,28 +1648,42 @@
       "1278713831345881170": {
         "daily": {
           "2026-08-01": 131,
-          "2026-08-03": 13
+          "2026-08-03": 53
         },
         "weekly": {
           "2026-07-27": 131,
-          "2026-08-03": 13
+          "2026-08-03": 53
         },
         "monthly": {
-          "2026-08": 144
+          "2026-08": 184
         },
-        "total": 144
+        "total": 184
       },
       "1408853277470097568": {
         "daily": {
-          "2026-08-01": 8
+          "2026-08-01": 8,
+          "2026-08-03": 26
         },
         "weekly": {
-          "2026-07-27": 8
+          "2026-07-27": 8,
+          "2026-08-03": 26
         },
         "monthly": {
-          "2026-08": 8
+          "2026-08": 34
         },
-        "total": 8
+        "total": 34
+      },
+      "1508447915352391751": {
+        "daily": {
+          "2026-08-03": 1
+        },
+        "weekly": {
+          "2026-08-03": 1
+        },
+        "monthly": {
+          "2026-08": 1
+        },
+        "total": 1
       }
     }
   },
@@ -1782,5 +1825,58 @@
       "authorId": "1278713831345881170",
       "createdAt": 1785794401537
     }
-  ]
+  ],
+  "filters": {
+    "words": [
+      "nigger"
+    ],
+    "wordExempts": [],
+    "wordWhitelist": [],
+    "invites": {
+      "enabled": true,
+      "exempts": []
+    },
+    "massmention": {
+      "enabled": true,
+      "threshold": 5,
+      "exempts": []
+    },
+    "spoilers": {
+      "enabled": false,
+      "threshold": 5,
+      "exempts": []
+    },
+    "links": {
+      "enabled": false,
+      "exempts": [],
+      "whitelist": []
+    },
+    "regex": {
+      "patterns": [],
+      "exempts": []
+    },
+    "emoji": {
+      "enabled": false,
+      "threshold": 10,
+      "exempts": []
+    },
+    "musicfiles": {
+      "enabled": false,
+      "exempts": []
+    },
+    "spam": {
+      "enabled": true,
+      "threshold": 5,
+      "window": 5000,
+      "exempts": []
+    },
+    "caps": {
+      "enabled": true,
+      "threshold": 70,
+      "exempts": []
+    },
+    "snipe": {
+      "types": []
+    }
+  }
 }

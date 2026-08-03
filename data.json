@@ -386,11 +386,11 @@
     },
     "1408853277470097568": {
       "guesswordWins": 0,
-      "swearCount": 0,
+      "swearCount": 1,
       "vcTotalMinutes": 17611,
       "warnings": [],
       "streakCount": 1,
-      "lastStreakDate": "2026-08-01"
+      "lastStreakDate": "2026-08-04"
     },
     "1410668779347771402": {
       "guesswordWins": 0,
@@ -438,7 +438,7 @@
       "vcTotalMinutes": 0,
       "warnings": [],
       "streakCount": 1,
-      "lastStreakDate": "2026-07-20"
+      "lastStreakDate": "2026-08-04"
     },
     "769683849566355489": {
       "guesswordWins": 0,
@@ -490,7 +490,7 @@
     },
     "1278713831345881170": {
       "guesswordWins": 0,
-      "swearCount": 1,
+      "swearCount": 3,
       "vcTotalMinutes": 85,
       "warnings": [],
       "streakCount": 1,

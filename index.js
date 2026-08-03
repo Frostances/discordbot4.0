@@ -92,7 +92,7 @@ const { handleVoiceTimeStats, handleMessageStats,
 const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
 const { handleCustomize } = require('./modules/customize');
 const { handleReaction, onMessageCreate: reactionOnMessageCreate, onReactionAdd: reactionOnReactionAdd } = require('./modules/reaction');
-
+const { handleFilter, onMessageCreate: filterOnMessageCreate } = require('./modules/filter');
 const { handleInvokeCommand } = require('./modules/invoke');
 
 const {
@@ -1086,6 +1086,9 @@ client.on('messageCreate', async (message) => {
      // ── Reaction triggers + auto-reactions ──
      await reactionOnMessageCreate(message).catch(() => {});
 
+     // ── Filter System ──
+     await filterOnMessageCreate(message).catch(() => {});
+
      // ── Prefix check ──
      const prefix = db.get('settings', {}).prefix || ',';
     if (!message.content.startsWith(prefix)) return;
@@ -1419,6 +1422,9 @@ client.on('messageCreate', async (message) => {
 
      // ── Reaction System ──
      if (command === 'reaction' || command === 'previousreact' || command === 'noselfreact') return handleReaction(message, command, args);
+
+         // ── Filter System ──
+         if (command === 'filter') return handleFilter(message, args);
 
      } catch (err) {
      await handleCommandError(message, err);

@@ -91,6 +91,7 @@ const { handleVoiceTimeStats, handleMessageStats,
         trackMessage, handleStatsClear }                 = require('./modules/stats');
 const { setAfk, checkAfkReturn, checkAfkMentions } = require('./modules/afk');
 const { handleCustomize } = require('./modules/customize');
+const { handleReaction, onMessageCreate: reactionOnMessageCreate, onReactionAdd: reactionOnReactionAdd } = require('./modules/reaction');
 
 const { handleInvokeCommand } = require('./modules/invoke');
 
@@ -1082,8 +1083,11 @@ client.on('messageCreate', async (message) => {
     const gwGame = activeGuessWordGames.get(message.channel.id);
     if (gwGame?.gameActive) { await gwGame.handleGuess(message, message.content); return; }
 
-    // ── Prefix check ──
-    const prefix = db.get('settings', {}).prefix || ',';
+     // ── Reaction triggers + auto-reactions ──
+     await reactionOnMessageCreate(message).catch(() => {});
+
+     // ── Prefix check ──
+     const prefix = db.get('settings', {}).prefix || ',';
     if (!message.content.startsWith(prefix)) return;
 
     const rawArgs = message.content.slice(prefix.length).trim().split(/ +/);
@@ -1413,10 +1417,13 @@ client.on('messageCreate', async (message) => {
             return handleAvatar(message, target);
         }
 
-    } catch (err) {
-        await handleCommandError(message, err);
-    }
-});
+     // ── Reaction System ──
+     if (command === 'reaction' || command === 'previousreact' || command === 'noselfreact') return handleReaction(message, command, args);
+
+     } catch (err) {
+     await handleCommandError(message, err);
+     }
+    });
 
 // ══════════════════════════════════════════════════════════
 //  INTERACTION CREATE
@@ -1705,8 +1712,9 @@ client.on('messageReactionAdd', async (reaction, user) => {
     if (reaction.message.partial) {
         try { await reaction.message.fetch(); } catch { return; }
     }
-    await handleReactionAdd(reaction, user).catch(() => {});
-    trackReactionAdd(reaction, user);
+     await handleReactionAdd(reaction, user).catch(() => {});
+     await reactionOnReactionAdd(reaction, user, client).catch(() => {});
+     trackReactionAdd(reaction, user);
 });
 
 client.on('messageReactionRemove', async (reaction, user) => {

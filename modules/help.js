@@ -27,6 +27,7 @@ const CATEGORY_META = {
     info:        { emoji: '🔍', label: 'info' },
     fun:         { emoji: '🎮', label: 'fun' },
     utility:     { emoji: '🔧', label: 'utility' },
+    reaction:    { emoji: '👍', label: 'reaction' },
 };
 
 function catLabel(cat) {

@@ -716,7 +716,7 @@ async function cmdMusicStatus(ctx) {
   lines.push('');
   lines.push('**How to set up:**');
   lines.push('1. Get a Lavalink server (self-host or public node)');
-  lines.push('2. Set `LAVALINK_URL=host:port` and `LAVALINK_PASSWORD=yourpass` in your `.env`');
+  lines.push('2. Edit the `NODES` array in `modules/musicManager.js` with your host, port, password, and secure setting');
   lines.push('3. Restart the bot');
 
   const description = lines.join('\n');

@@ -8,11 +8,16 @@ Preferred communication style: Simple, everyday language.
 
 # System Architecture
 
+## Running the Bot
+- Requires a `BOT_TOKEN` secret set in Replit Secrets (the Discord bot token)
+- Run via the **Discord Bot** workflow (`node index.js`)
+- Music system uses Lavalink — node details are hardcoded in `modules/musicManager.js` (edit the `NODES` array to change)
+
 ## Core Bot Framework
 - **Discord.js v14**: Primary framework for Discord API interactions
 - **Event-driven architecture**: Bot responds to Discord events (messages, voice state changes, reactions)
 - **Single-file monolithic design**: All functionality contained in `index.js` for simplicity
-- **Environment variable configuration**: Bot token and channel IDs stored as environment variables
+- **Environment variable configuration**: Bot token stored as `BOT_TOKEN` in Replit Secrets
 
 ## Game Systems
 - **GuessWord Game**: Single-letter guessing game with category support

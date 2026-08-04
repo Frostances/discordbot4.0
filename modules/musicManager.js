@@ -4,20 +4,19 @@
  */
 
 const { Shoukaku, Connectors } = require('shoukaku');
-const WebSocket = require('ws');
 const logger = require('../utils/logger');
 
 // ══════════════════════════════════════════════════════════
 // LAVALINK NODES CONFIG
 // ══════════════════════════════════════════════════════════
-// Add your Lavalink server details here. Supports multiple nodes.
-// secure: true for port 443 (SSL), false for other ports
+// Edit these values to change your Lavalink server details.
+// secure: true for SSL (port 443), false for plain connections
 const NODES = [
   {
-    name: 'LocalNode',
-    url: process.env.LAVALINK_URL || 'lavalinkv4.serenetia.com:443',
-    auth: process.env.LAVALINK_PASSWORD || 'https://seretia.link/discord',
-    secure: process.env.LAVALINK_SECURE === 'true' || (process.env.LAVALINK_URL || '').endsWith(':443'),
+    name: 'MainNode',
+    url: 'lavalinkv4.serenetia.com:443',
+    auth: 'https://seretia.link/discord',
+    secure: true,
   },
 ];
 

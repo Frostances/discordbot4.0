@@ -692,7 +692,7 @@ async function cmdMusicStatus(ctx) {
 
   if (!nodes.length) {
     lines.push('No Lavalink nodes are configured.');
-    lines.push('Set `LAVALINK_URL` and `LAVALINK_PASSWORD` in your `.env`, or edit `modules/musicManager.js`.');
+    lines.push('Edit the `NODES` array in `modules/musicManager.js` to set your Lavalink server details.');
   } else {
     for (const node of nodes) {
       const emoji = node.state === 'CONNECTED' ? '🟢' : node.state === 'CONNECTING' ? '🟡' : '🔴';

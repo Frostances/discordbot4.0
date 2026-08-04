@@ -1087,7 +1087,13 @@ client.on('messageCreate', async (message) => {
      await reactionOnMessageCreate(message).catch(() => {});
 
      // ── Filter System ──
-     await filterOnMessageCreate(message).catch(() => {});
+     if (isModuleEnabled(message.guild.id, 'filters')) {
+       try {
+         await filterOnMessageCreate(message);
+       } catch (err) {
+         logger.error('FILTER', err.message);
+       }
+     }
 
      // ── Prefix check ──
      const prefix = db.get('settings', {}).prefix || ',';

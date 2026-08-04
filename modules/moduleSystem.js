@@ -1,69 +1,138 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { getGuildDb } = require('./database');
-const { COLORS } = require('../utils/embeds');
+const { COLORS, base } = require('../utils/embeds');
 
-// All available modules. name -> default enabled
+// ══════════════════════════════════════════════════════════
+// MODULE REGISTRY
+// ══════════════════════════════════════════════════════════
+
 const MODULES = {
-    moderation:   { label: 'Moderation',   emoji: '🔨', description: 'Kick, ban, warn, purge, etc.' },
-    automod:      { label: 'AutoMod',      emoji: '🤖', description: 'Automatic message filtering' },
-    antinuke:     { label: 'AntiNuke',     emoji: '🛡️', description: 'Protect against nukes' },
-    antiraid:     { label: 'AntiRaid',     emoji: '🚨', description: 'Detect and stop raids' },
-    levels:       { label: 'Levels',       emoji: '📊', description: 'XP and level system' },
-    tickets:      { label: 'Tickets',      emoji: '🎫', description: 'Support ticket system' },
-    voicemaster:  { label: 'VoiceMaster',  emoji: '🎙️', description: 'Temporary voice channels' },
-    streaks:      { label: 'Streaks',      emoji: '🔥', description: 'Daily streak tracking' },
-    swears:       { label: 'Swear Tracking', emoji: '🤬', description: 'Track swear word usage' },
-    guessword:    { label: 'GuessWord',    emoji: '🎯', description: 'Word guessing game' },
+  moderation: 'Moderation',
+  automod: 'AutoMod',
+  antinuke: 'Anti-Nuke',
+  antiraid: 'Anti-Raid',
+  levels: 'Levels',
+  tickets: 'Tickets',
+  voicemaster: 'Voice Master',
+  streaks: 'Streaks',
+  swears: 'Swears',
+  guessword: 'Guess Word',
+  filters: 'Filters',
 };
 
-function getModules(guildId) {
-    const db = getGuildDb(guildId);
-    return db.get('modules', {});
-}
+const MODULE_ORDER = [
+  'moderation',
+  'automod',
+  'antinuke',
+  'antiraid',
+  'levels',
+  'tickets',
+  'voicemaster',
+  'streaks',
+  'swears',
+  'guessword',
+  'filters',
+];
+
+// ══════════════════════════════════════════════════════════
+// STATE HELPERS
+// ══════════════════════════════════════════════════════════
 
 function isModuleEnabled(guildId, moduleName) {
-    const mods = getModules(guildId);
-    // Default all enabled unless explicitly disabled
-    return mods[moduleName] !== false;
+  const db = getGuildDb(guildId);
+  const mods = db.get('modules', {});
+  return mods[moduleName] !== false; // default = enabled
 }
+
+function setModuleEnabled(guildId, moduleName, enabled) {
+  const db = getGuildDb(guildId);
+  const mods = db.get('modules', {});
+  mods[moduleName] = enabled;
+  db.set('modules', mods);
+}
+
+// ══════════════════════════════════════════════════════════
+// PANEL BUILDER
+// ══════════════════════════════════════════════════════════
+
+function buildModulePanel(guildId) {
+  const lines = [];
+  for (const key of MODULE_ORDER) {
+    const enabled = isModuleEnabled(guildId, key);
+    lines.push(`${enabled ? '🟢' : '🔴'} **${MODULES[key]}** \`(${key})\``);
+  }
+  return lines.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════
+// COMMAND HANDLER
+// ══════════════════════════════════════════════════════════
 
 async function handleModuleCommand(message, args) {
-    const { isStaffOrAdmin } = require('./helpers');
-    if (!isStaffOrAdmin(message.member)) return message.reply('❌ No permission.');
+  if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return message.reply({ content: '❌ Only server admins can manage modules.', ephemeral: true });
+  }
 
-    const db = getGuildDb(message.guild.id);
-    const sub = args[0]?.toLowerCase();
+  const sub = args[0]?.toLowerCase();
+  const target = args[1]?.toLowerCase();
 
-    if (!sub || sub === 'list') {
-        const mods = getModules(message.guild.id);
-        const lines = Object.entries(MODULES).map(([key, val]) => {
-            const enabled = mods[key] !== false;
-            return `${val.emoji} **${val.label}** — ${enabled ? '✅ Enabled' : '❌ Disabled'}\n↳ ${val.description}`;
-        });
-
-        const embed = new EmbedBuilder()
-            .setTitle('🧩 Module Status')
-            .setDescription(lines.join('\n\n'))
-            .setColor(COLORS.primary)
-            .setFooter({ text: 'Use .config module enable/disable <name>' })
-            .setTimestamp();
-
-        return message.channel.send({ embeds: [embed] });
+  if (sub === 'enable' || sub === 'disable') {
+    const enabled = sub === 'enable';
+    if (target === 'all') {
+      for (const key of MODULE_ORDER) setModuleEnabled(message.guild.id, key, enabled);
+      return message.reply({ embeds: [base(COLORS.success).setTitle('Modules Updated').setDescription(`All modules have been **${enabled ? 'enabled' : 'disabled'}**.`)] });
     }
-
-    if (sub === 'enable' || sub === 'disable') {
-        const name = args[1]?.toLowerCase();
-        if (!name || !MODULES[name]) {
-            return message.reply(`❌ Unknown module. Valid: ${Object.keys(MODULES).join(', ')}`);
-        }
-        const mods = getModules(message.guild.id);
-        mods[name] = sub === 'enable';
-        db.set('modules', mods);
-        const mod = MODULES[name];
-        return message.reply(`${sub === 'enable' ? '✅' : '🔴'} **${mod.label}** module **${sub}d**.`);
+    if (!MODULES[target]) {
+      return message.reply({ content: `❌ Invalid module. Available: ${Object.keys(MODULES).join(', ')}`, ephemeral: true });
     }
+    setModuleEnabled(message.guild.id, target, enabled);
+    return message.reply({ embeds: [base(COLORS.success).setTitle('Module Updated').setDescription(`**${MODULES[target]}** has been **${enabled ? 'enabled' : 'disabled'}**.`)] });
+  }
 
-    return message.reply('❌ Usage: `.config module list` | `.config module enable <name>` | `.config module disable <name>`');
+  // Show panel
+  const embed = base(COLORS.primary)
+    .setTitle('🧩 Module Control Panel')
+    .setDescription(buildModulePanel(message.guild.id))
+    .addFields(
+      { name: 'Enable', value: '`.module enable <name>`', inline: true },
+      { name: 'Disable', value: '`.module disable <name>`', inline: true },
+      { name: 'All', value: '`.module enable all` / `.module disable all`', inline: true },
+    )
+    .setFooter({ text: 'Modules are enabled by default. Disabling a module prevents its commands and background logic from running.' });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('module_enable_all').setLabel('Enable All').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('module_disable_all').setLabel('Disable All').setStyle(ButtonStyle.Danger),
+  );
+
+  return message.reply({ embeds: [embed], components: [row] });
 }
 
-module.exports = { MODULES, isModuleEnabled, getModules, handleModuleCommand };
+// ══════════════════════════════════════════════════════════
+// BUTTON HANDLER
+// ══════════════════════════════════════════════════════════
+
+async function handleModuleButton(interaction) {
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return interaction.reply({ content: '❌ Only admins can manage modules.', ephemeral: true });
+  }
+
+  const customId = interaction.customId;
+  if (customId === 'module_enable_all') {
+    for (const key of MODULE_ORDER) setModuleEnabled(interaction.guild.id, key, true);
+    return interaction.update({ embeds: [base(COLORS.success).setTitle('Modules Updated').setDescription('All modules have been **enabled**.')], components: [] });
+  }
+  if (customId === 'module_disable_all') {
+    for (const key of MODULE_ORDER) setModuleEnabled(interaction.guild.id, key, false);
+    return interaction.update({ embeds: [base(COLORS.error).setTitle('Modules Updated').setDescription('All modules have been **disabled**.')], components: [] });
+  }
+}
+
+module.exports = {
+  handleModuleCommand,
+  handleModuleButton,
+  isModuleEnabled,
+  setModuleEnabled,
+  MODULES,
+  MODULE_ORDER,
+};

@@ -28,5 +28,3 @@ args = "node index.js"
 [userenv]
 
 [userenv.shared]
-LAVALINK_URL = "localhost:2333"
-LAVALINK_PASSWORD = "MUSIC9999"

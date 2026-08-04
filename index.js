@@ -1,5 +1,5 @@
 // Load .env only when running locally; Replit injects secrets as real env vars
-try { process.loadEnvFile(); } catch { /* no .env file — fine in production/Replit */ }
+require('dotenv').config();
 const {
     Client, GatewayIntentBits, EmbedBuilder,
     ActionRowBuilder, ButtonBuilder, ButtonStyle,

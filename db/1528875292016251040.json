@@ -760,7 +760,7 @@
       "lastCrime": null
     },
     "1278713831345881170": {
-      "xp": 7602,
+      "xp": 7866,
       "level": 5,
       "balance": 0,
       "bank": 0,
@@ -784,7 +784,7 @@
       "lastCrime": null
     },
     "1408853277470097568": {
-      "xp": 2695,
+      "xp": 2935,
       "level": 3,
       "balance": 0,
       "bank": 0,
@@ -1769,31 +1769,31 @@
         "daily": {
           "2026-08-01": 131,
           "2026-08-03": 53,
-          "2026-08-04": 92
+          "2026-08-04": 105
         },
         "weekly": {
           "2026-07-27": 131,
-          "2026-08-03": 145
+          "2026-08-03": 158
         },
         "monthly": {
-          "2026-08": 276
+          "2026-08": 289
         },
-        "total": 276
+        "total": 289
       },
       "1408853277470097568": {
         "daily": {
           "2026-08-01": 8,
           "2026-08-03": 26,
-          "2026-08-04": 113
+          "2026-08-04": 149
         },
         "weekly": {
           "2026-07-27": 8,
-          "2026-08-03": 139
+          "2026-08-03": 175
         },
         "monthly": {
-          "2026-08": 147
+          "2026-08": 183
         },
-        "total": 147
+        "total": 183
       },
       "1508447915352391751": {
         "daily": {
@@ -1965,8 +1965,7 @@
     "enabled": true,
     "useAutoMod": true,
     "words": [
-      "nigger",
-      "niggers"
+      "nigger"
     ],
     "wordExempts": [],
     "wordWhitelist": [],
@@ -2029,6 +2028,13 @@
       "enabled": true,
       "threshold": 90,
       "minLength": 60,
+      "exempts": [],
+      "punishment": "delete",
+      "logChannel": null
+    },
+    "duplicates": {
+      "enabled": true,
+      "threshold": 5,
       "exempts": [],
       "punishment": "delete",
       "logChannel": null

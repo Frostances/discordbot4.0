@@ -644,8 +644,8 @@ async function handleFilterBase(message) {
     .setDescription(
       `**Module Status:** ${data.enabled ? '✅ Enabled' : '❌ Disabled'}\\n` +
       `**AutoMod:** ${data.useAutoMod ? '✅ On' : '❌ Off'}\\n\\n` +
-      `Use \\`,filter enable\\` to turn on the module.\\n` +
-      `Use \\`,filter <type> --setting value\\` to configure.`
+      `Use \`,filter enable\` to turn on the module.\\n` +
+      `Use \`,filter <type> --setting value\` to configure.`
     )
     .addFields(
       { name: 'Word Filter', value: `${data.words.length} word(s) | ${data.wordExempts.length} exempt | Punishment: ${data.invites.punishment}`, inline: true },
@@ -986,7 +986,7 @@ async function handleGenericFilter(message, filterType, args) {
       return handleFilterTypeExemptList(message, filterType);
     }
     const role = message.mentions.roles.first();
-    if (!role) return message.reply({ embeds: [mkError('Missing Role', `Mention a role: \\`,filter ${filterType} exempt @Role\\``)] });
+    if (!role) return message.reply({ embeds: [mkError('Missing Role', `Mention a role: \`,filter ${filterType} exempt @Role\``)] });
     return toggleFilterExempt(message, filterType, role.id);
   }
 
@@ -1091,7 +1091,7 @@ async function handleFilterRegex(message, args) {
     if (!data.regex.patterns.length) return message.reply({ embeds: [mkInfo('Regex Patterns', 'No regex patterns configured.')] });
     const embed = new EmbedBuilder()
       .setTitle('📋 Regex Patterns')
-      .setDescription(data.regex.patterns.map((p, i) => `${i + 1}. \\`${p.name}\\` — \\`${p.pattern}\\``).join('\\n'))
+      .setDescription(data.regex.patterns.map((p, i) => `${i + 1}. \`${p.name}\` — \`${p.pattern}\``).join('\\n'))
       .setColor('#5865F2');
     return message.reply({ embeds: [embed] });
   }
@@ -1104,7 +1104,7 @@ async function handleFilterRegex(message, args) {
   if (existing) {
     data.regex.patterns = data.regex.patterns.filter(p => p.pattern !== pattern);
     setFilterData(message.guild.id, data);
-    return message.reply({ embeds: [mkSuccess('Pattern Removed', `Removed regex pattern \\`${pattern}\\`.`)] });
+    return message.reply({ embeds: [mkSuccess('Pattern Removed', `Removed regex pattern \`${pattern}\`.`)] });
   }
 
   try { new RegExp(pattern); } catch {
@@ -1113,7 +1113,7 @@ async function handleFilterRegex(message, args) {
 
   data.regex.patterns.push({ name: pattern, pattern });
   setFilterData(message.guild.id, data);
-  return message.reply({ embeds: [mkSuccess('Pattern Added', `Added regex pattern \\`${pattern}\\`.`)] });
+  return message.reply({ embeds: [mkSuccess('Pattern Added', `Added regex pattern \`${pattern}\`.`)] });
 }
 
 async function handleFilterEmoji(message, args) {

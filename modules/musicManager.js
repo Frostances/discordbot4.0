@@ -13,8 +13,9 @@ const logger = require('../utils/logger');
 const NODES = [
     {
         name: 'LocalNode',
-        url: process.env.LAVALINK_URL || 'localhost:2333',
-        auth: process.env.LAVALINK_PASSWORD || 'your-secure-password',
+        url: process.env.LAVALINK_URL || 'lavalink.jirayu.net:443',
+        auth: process.env.LAVALINK_PASSWORD || 'youshallnotpass',
+        secure: process.env.LAVALINK_SECURE === 'true',
     },
 ];
 
@@ -350,7 +351,7 @@ function setupPlayerEvents(player, guildId) {
                     queue.current = 0;
                 } else {
                     // Queue ended
-                    await player.destroyPlayer();
+                    await player.destroy();
                     deleteQueue(guildId);
                     return;
                 }
@@ -391,25 +392,24 @@ async function resolveQuery(node, query) {
 // GET BEST NODE (FIXED)
 // ══════════════════════════════════════════════════════════
 function getBestNode() {
-    const shoukaku = getShoukaku();
-    if (!shoukaku) {
-        console.log('[DEBUG] Shoukaku is null!');
-        return null;
-    }
-
-    console.log('[DEBUG] Shoukaku nodes count:', shoukaku.nodes.size);
-
-    for (const [name, node] of shoukaku.nodes) {
-        console.log(`[DEBUG] Node "${name}" state:`, node.state);
-    }
-
-    // Return first available node
+    if (!shoukaku) return null;
     for (const node of shoukaku.nodes.values()) {
-        return node;
+        if (node.state === 1) return node; // 1 = CONNECTED
     }
-
-    console.log('[DEBUG] No nodes found in Shoukaku');
     return null;
+}
+
+function getNodeStatus() {
+    if (!shoukaku) return [];
+    return Array.from(shoukaku.nodes.values()).map(node => ({
+        name: node.name,
+        state: node.state === 0 ? 'CONNECTING' : node.state === 1 ? 'CONNECTED' : 'DISCONNECTED',
+        stats: node.state === 1 ? node.stats : null,
+    }));
+}
+
+function isLavalinkReady() {
+    return !!getBestNode();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -437,4 +437,6 @@ module.exports = {
     setupPlayerEvents,
     resolveQuery,
     getBestNode,
+    getNodeStatus,
+    isLavalinkReady,
 };

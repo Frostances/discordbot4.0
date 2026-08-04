@@ -3,7 +3,7 @@
  * Lavalink-based audio streaming via Shoukaku
  */
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { 
     getShoukaku, getPlayer, hasPlayer, getBestNode,
     formatDuration, formatTrack,
@@ -12,6 +12,7 @@ const {
     getQueue, setQueue, clearQueue, deleteQueue,
     LOOP_MODES, getNextLoopMode,
     setupPlayerEvents, resolveQuery,
+    isLavalinkReady, getNodeStatus,
 } = require('./musicManager');
 const logger = require('../utils/logger');
 
@@ -47,15 +48,26 @@ function checkVoice(ctx) {
     }
 
     const botMember = guild.members.me;
+    const voiceChannel = member.voice.channel;
+
+    // Check bot permissions
+    const permissions = voiceChannel.permissionsFor(botMember);
+    if (!permissions.has(PermissionFlagsBits.Connect)) {
+        return { ok: false, reply: "I don't have permission to connect to your voice channel!" };
+    }
+    if (!permissions.has(PermissionFlagsBits.Speak)) {
+        return { ok: false, reply: "I don't have permission to speak in your voice channel!" };
+    }
+
     if (!botMember.voice.channel) {
-        return { ok: true, voiceChannel: member.voice.channel };
+        return { ok: true, voiceChannel };
     }
 
     if (botMember.voice.channel.id !== member.voice.channel.id) {
         return { ok: false, reply: 'You must be in the same voice channel as the bot!' };
     }
 
-    return { ok: true, voiceChannel: member.voice.channel };
+    return { ok: true, voiceChannel };
 }
 
 async function sendReply(ctx, payload) {
@@ -107,7 +119,7 @@ async function cmdPlay(ctx, args) {
 
     const node = getBestNode();
     if (!node) {
-        return sendReply(ctx, { embeds: [errorEmbed('No Lavalink nodes are available.')] });
+        return sendReply(ctx, { embeds: [errorEmbed('No Lavalink nodes are available. Use `,music` to check your configuration.')] });
     }
 
     const result = await resolveQuery(node, query);
@@ -121,8 +133,15 @@ async function cmdPlay(ctx, args) {
     if (result.loadType === 'playlist') {
         tracks = result.data.tracks;
         playlistName = result.data.info?.name || 'Unknown Playlist';
-    } else if (result.loadType === 'search' || result.loadType === 'track') {
-        tracks = result.loadType === 'search' ? [result.data[0]] : [result.data];
+    } else if (result.loadType === 'search') {
+        if (!result.data || !result.data.length) {
+            return sendReply(ctx, { embeds: [errorEmbed('No results found for that query.')] });
+        }
+        tracks = [result.data[0]];
+    } else if (result.loadType === 'track') {
+        tracks = [result.data];
+    } else {
+        return sendReply(ctx, { embeds: [errorEmbed('Unknown response from Lavalink.')] });
     }
 
     if (!tracks.length) {
@@ -132,20 +151,25 @@ async function cmdPlay(ctx, args) {
     // Get or create player
     let player = getPlayer(guildId);
     if (!player) {
-        player = await getShoukaku().joinVoiceChannel({
-            guildId: guildId,
-            channelId: voiceChannel.id,
-            shardId: 0,
-            deaf: true,
-        });
-        setupPlayerEvents(player, guildId);
+        try {
+            player = await getShoukaku().joinVoiceChannel({
+                guildId: guildId,
+                channelId: voiceChannel.id,
+                shardId: 0,
+                deaf: true,
+            });
+            setupPlayerEvents(player, guildId);
+        } catch (err) {
+            logger.error('MUSIC', 'Failed to join voice channel:', err);
+            return sendReply(ctx, { embeds: [errorEmbed("Failed to join the voice channel. Please check my permissions.")] });
+        }
     }
 
     const queue = getQueue(guildId);
 
     if (playNext) {
         // Insert after current track
-        const insertIndex = queue.current + 1;
+        const insertIndex = Math.max(0, queue.current + 1);
         queue.tracks.splice(insertIndex, 0, ...tracks);
     } else {
         queue.tracks.push(...tracks);
@@ -155,9 +179,23 @@ async function cmdPlay(ctx, args) {
 
     // If nothing is playing, start playing
     if (!player.playing && !player.paused) {
-        queue.current = playNext ? queue.current : (queue.tracks.length - tracks.length);
+        if (queue.current === -1) {
+            queue.current = 0;
+        } else if (!playNext) {
+            queue.current = queue.tracks.length - tracks.length;
+        }
+
         const trackToPlay = queue.tracks[queue.current];
-        await player.playTrack({ track: { encoded: trackToPlay.encoded } });
+        if (!trackToPlay) {
+            return sendReply(ctx, { embeds: [errorEmbed('Failed to load track. Please try again.')] });
+        }
+
+        try {
+            await player.playTrack({ track: { encoded: trackToPlay.encoded } });
+        } catch (err) {
+            logger.error('MUSIC', 'Failed to play track:', err);
+            return sendReply(ctx, { embeds: [errorEmbed('Failed to start playback. The track may be unavailable.')] });
+        }
 
         const embed = musicEmbed('🎵 Now Playing', formatTrack(trackToPlay))
             .setThumbnail(trackToPlay.info.artworkUrl || null);
@@ -226,6 +264,10 @@ async function cmdQueueShuffle(ctx) {
 
     if (queue.tracks.length < 2) {
         return sendReply(ctx, { embeds: [errorEmbed('Not enough tracks to shuffle.')] });
+    }
+
+    if (queue.current < 0 || queue.current >= queue.tracks.length) {
+        return sendReply(ctx, { embeds: [errorEmbed('No track is currently playing.')] });
     }
 
     // Keep current track in place, shuffle the rest
@@ -442,7 +484,7 @@ async function cmdVolume(ctx, args) {
         return sendReply(ctx, { embeds: [errorEmbed('Volume must be between 0 and 1000.')] });
     }
 
-    await player.setGlobalVolume(vol);
+    await player.setVolume(vol);
 
     return sendReply(ctx, { embeds: [successEmbed(`Volume set to **${vol}%** 🔊`)] });
 }
@@ -639,6 +681,41 @@ async function cmdPreset(ctx, args) {
 // ══════════════════════════════════════════════════════════
 // COMMAND: DISCONNECT
 // ══════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════
+// COMMAND: MUSIC STATUS
+// ══════════════════════════════════════════════════════════
+async function cmdMusicStatus(ctx) {
+    const ready = isLavalinkReady();
+    const nodes = getNodeStatus();
+
+    const lines = [];
+    lines.push(`**Lavalink Status:** ${ready ? '✅ Connected' : '❌ Not Connected'}`);
+    lines.push('');
+
+    if (!nodes.length) {
+        lines.push('No Lavalink nodes are configured.');
+        lines.push('Set `LAVALINK_URL` and `LAVALINK_PASSWORD` in your `.env`, or edit `modules/musicManager.js`.');
+    } else {
+        for (const node of nodes) {
+            const emoji = node.state === 'CONNECTED' ? '🟢' : node.state === 'CONNECTING' ? '🟡' : '🔴';
+            lines.push(`${emoji} **${node.name}** — ${node.state}`);
+            if (node.stats) {
+                lines.push(`↳ Players: ${node.stats.players || 0} | Playing: ${node.stats.playingPlayers || 0}`);
+            }
+        }
+    }
+
+    lines.push('');
+    lines.push('**How to set up:**');
+    lines.push('1. Get a Lavalink server (self-host or public node)');
+    lines.push('2. Set `LAVALINK_URL=host:port` and `LAVALINK_PASSWORD=yourpass` in your `.env`');
+    lines.push('3. Restart the bot');
+
+    const description = lines.join('\n');
+    return sendReply(ctx, { embeds: [musicEmbed('🎵 Music System Status', description)] });
+}
+
 async function cmdDisconnect(ctx) {
     const check = checkVoice(ctx);
     if (!check.ok) return sendReply(ctx, { embeds: [errorEmbed(check.reply)] });
@@ -650,7 +727,7 @@ async function cmdDisconnect(ctx) {
         return sendReply(ctx, { embeds: [errorEmbed('Not connected to a voice channel.')] });
     }
 
-    await player.destroyPlayer();
+    await player.destroy();
     deleteQueue(guildId);
 
     return sendReply(ctx, { embeds: [successEmbed('👋 Disconnected and cleared the queue.')] });
@@ -704,6 +781,7 @@ const MUSIC_COMMANDS = new Set([
     'rewind', 'rw',
     'preset',
     'nowplaying', 'np',
+    'music',
     // Sub-commands
     'queue-shuffle', 'queue-empty', 'queue-remove', 'queue-move',
 ]);
@@ -711,6 +789,9 @@ const MUSIC_COMMANDS = new Set([
 async function handleMusicCommand(ctx, command, args) {
     try {
         switch (command) {
+            case 'music':
+                return await cmdMusicStatus(ctx);
+
             case 'play':
             case 'p':
                 return await cmdPlay(ctx, args);

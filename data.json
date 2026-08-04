@@ -387,7 +387,7 @@
     "1408853277470097568": {
       "guesswordWins": 0,
       "swearCount": 5,
-      "vcTotalMinutes": 21147,
+      "vcTotalMinutes": 21258,
       "warnings": [],
       "streakCount": 1,
       "lastStreakDate": "2026-08-04"
@@ -519,6 +519,14 @@
       "warnings": [],
       "streakCount": 0,
       "lastStreakDate": null
+    },
+    "1528881379868152020": {
+      "guesswordWins": 0,
+      "swearCount": 0,
+      "vcTotalMinutes": 3,
+      "warnings": [],
+      "streakCount": 0,
+      "lastStreakDate": null
     }
   },
   "persistentData": {
@@ -531,8 +539,9 @@
       "769683849566355489": 1784584695187,
       "1420111568300937351": 1785459571812,
       "1410668779347771402": 1785611497486,
-      "1408853277470097568": 1785823877859,
-      "1164500664462880778": 1785824073189
+      "1164500664462880778": 1785824073189,
+      "1278713831345881170": 1785828395607,
+      "1408853277470097568": 1785830563124
     },
     "staffRoles": [],
     "voiceMaster": {},

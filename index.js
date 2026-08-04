@@ -134,6 +134,11 @@ const { initMusicManager } = require('./modules/musicManager');
 const { handleMusicCommand, MUSIC_COMMANDS } = require('./modules/music');
 
 // ══════════════════════════════════════════════════════════
+// MEDIA SYSTEM
+// ══════════════════════════════════════════════════════════
+const { handleMediaCommand, MEDIA_COMMANDS } = require('./modules/media');
+
+// ══════════════════════════════════════════════════════════
 //  HANDLERS
 // ══════════════════════════════════════════════════════════
 const { registerSlashCommands }       = require('./handlers/slashHandler');
@@ -1380,6 +1385,11 @@ client.on('messageCreate', async (message) => {
          // ── Customize (bot owner only) ──
     if (command === 'customize') return handleCustomize(message, args, client);
 
+    // ── Media commands ──
+         if (command === 'media' || MEDIA_COMMANDS.has(command)) {
+             return handleMediaCommand(message, command, args);
+         }
+
     // ── Music commands ──
          if (MUSIC_COMMANDS.has(command)) {
              // Handle queue subcommands
@@ -1814,8 +1824,6 @@ client.on('emojiUpdate', async (oldEmoji, newEmoji) => await logOnEmojiUpdate(ol
 // ══════════════════════════════════════════════════════════
 client.once('clientReady', async () => {
     logger.info('BOT', `Logged in as ${client.user.tag}`);
-     // Initialize music manager
-     initMusicManager(client);
     loadLegacyData();
     loadDictionary();
     scheduleNewDay();
@@ -1874,5 +1882,10 @@ client.user.setPresence({ status: 'online', activities: [{ name: 'x', type: Acti
 
     logger.info('BOT', `Ready. Serving ${client.guilds.cache.size} guilds.`);
 });
+
+// Initialize music manager BEFORE login so Shoukaku's clientReady listener
+// is registered before the event fires (Shoukaku.DiscordJS connector listens
+// for 'clientReady' to start connecting to Lavalink nodes)
+initMusicManager(client);
 
 client.login(process.env.BOT_TOKEN);

@@ -714,10 +714,15 @@ async function cmdMusicStatus(ctx) {
   }
 
   lines.push('');
-  lines.push('**How to set up:**');
-  lines.push('1. Get a Lavalink server (self-host or public node)');
-  lines.push('2. Edit the `NODES` array in `modules/musicManager.js` with your host, port, password, and secure setting');
-  lines.push('3. Restart the bot');
+  lines.push('**Node config** (`modules/musicManager.js`):');
+  const nodeInfo = getNodeStatus();
+  if (nodeInfo.length === 0) {
+    lines.push('No nodes configured in `NODES` array.');
+  } else {
+    for (const n of nodeInfo) {
+      lines.push(`↳ \`${n.name}\`: ${n.state}`);
+    }
+  }
 
   const description = lines.join('\n');
   return sendReply(ctx, { embeds: [musicEmbed('🎵 Music System Status', description)] });

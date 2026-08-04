@@ -2,22 +2,22 @@
  * media.js — Image manipulation commands (36 commands)
  * Uses ImageMagick 7 (magick) and FFmpeg — both available in Replit runtime.
  *
- * Usage: .media <subcommand> [args]
+ * Usage: .media <command> [args]
  * Image source: message attachment, replied-to attachment, URL in args, or @mention avatar.
  */
 
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const { spawn }    = require('child_process');
-const fs           = require('fs');
-const path         = require('path');
-const os           = require('os');
-const logger       = require('../utils/logger');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const logger = require('../utils/logger');
 
 // ══════════════════════════════════════════════════════════
-// TOOL PATHS  (available in Replit's Nix runtime)
+// TOOL PATHS (available in Replit's Nix runtime)
 // ══════════════════════════════════════════════════════════
 const MAGICK = 'magick';
-const FFMPEG  = 'ffmpeg';
+const FFMPEG = 'ffmpeg';
 
 // ══════════════════════════════════════════════════════════
 // HELPERS
@@ -330,8 +330,8 @@ async function doFlag(input, output, variant = 1) {
 
   // Build a horizontal tricolour flag overlay and composite
   const colors = variant === 1
-    ? ['#0055A4', '#FFFFFF', '#EF4135']   // France
-    : ['#D00C27', '#003DA5', '#FFFFFF'];  // Netherlands (alt)
+    ? ['#0055A4', '#FFFFFF', '#EF4135'] // France
+    : ['#D00C27', '#003DA5', '#FFFFFF']; // Netherlands (alt)
 
   const stripH = Math.floor(size / 3);
 
@@ -340,11 +340,11 @@ async function doFlag(input, output, variant = 1) {
     '-resize', `${size}x${size}^`, '-gravity', 'Center', '-extent', `${size}x${size}`,
     // flag overlay at 60% opacity
     '(',
-      '-size', `${size}x${size}`, 'xc:none',
-      '-fill', colors[0], '-draw', `rectangle 0,0 ${size},${stripH}`,
-      '-fill', colors[1], '-draw', `rectangle 0,${stripH} ${size},${stripH * 2}`,
-      '-fill', colors[2], '-draw', `rectangle 0,${stripH * 2} ${size},${size}`,
-      '-alpha', 'set', '-channel', 'Alpha', '-evaluate', 'set', '60%',
+    '-size', `${size}x${size}`, 'xc:none',
+    '-fill', colors[0], '-draw', `rectangle 0,0 ${size},${stripH}`,
+    '-fill', colors[1], '-draw', `rectangle 0,${stripH} ${size},${stripH * 2}`,
+    '-fill', colors[2], '-draw', `rectangle 0,${stripH * 2} ${size},${size}`,
+    '-alpha', 'set', '-channel', 'Alpha', '-evaluate', 'set', '60%',
     ')',
     '-composite',
     output,
@@ -355,9 +355,9 @@ async function doToaster(input, output) {
   // Warm orange-red tones with brightness pulse (simulate toasting)
   await run(MAGICK, [
     input + '[0]',
-    '-colorize', '30,0,0',       // red tint
-    '-modulate', '120,140',      // brighter, more saturated
-    '-vignette', '0x20+0+0',     // dark vignette
+    '-colorize', '30,0,0', // red tint
+    '-modulate', '120,140', // brighter, more saturated
+    '-vignette', '0x20+0+0', // dark vignette
     output,
   ]);
 }
@@ -371,7 +371,7 @@ async function doBillboard(input, output) {
     input + '[0]',
     '-resize', `${size}x${size}^`, '-gravity', 'Center', '-extent', `${size}x${size}`,
     '-distort', 'Perspective',
-    `0,0 20,30  ${size},0 ${size - 20},25  ${size},${size} ${size - 10},${size - 15}  0,${size} 15,${size - 20}`,
+    `0,0 20,30 ${size},0 ${size - 20},25 ${size},${size} ${size - 10},${size - 15} 0,${size} 15,${size - 20}`,
     '-bordercolor', '#888', '-border', '8',
     output,
   ]);
@@ -393,9 +393,9 @@ async function doRubiks(input, output) {
     const y = row * cell;
     args.push(
       '(',
-        input + '[0]',
-        '-resize', `${cell}x${cell}!`,
-        '-modulate', `100,120,${100 + hues[i]}`,
+      input + '[0]',
+      '-resize', `${cell}x${cell}!`,
+      '-modulate', `100,120,${100 + hues[i]}`,
       ')',
       '-geometry', `+${x}+${y}`,
       '-composite'
@@ -498,7 +498,7 @@ async function doBook(input, output) {
     input + '[0]',
     '-resize', `${size}x${size}^`, '-gravity', 'Center', '-extent', `${size}x${size}`,
     '-distort', 'Perspective',
-    `0,0 30,15  ${size},0 ${size - 10},10  ${size},${size} ${size},${size - 5}  0,${size} 20,${size - 10}`,
+    `0,0 30,15 ${size},0 ${size - 10},10 ${size},${size} ${size},${size - 5} 0,${size} 20,${size - 10}`,
     '-bordercolor', '#F5E6C8', '-border', '12',
     output,
   ]);
@@ -663,9 +663,9 @@ async function doScramble(input, output) {
       const { r: tr, c: tc } = shuffled[idx];
       args.push(
         '(',
-          input + '[0]',
-          '-resize', `${size}x${size}^`, '-gravity', 'Center', '-extent', `${size}x${size}`,
-          '-crop', `${cell}x${cell}+${c * cell}+${r * cell}`, '+repage',
+        input + '[0]',
+        '-resize', `${size}x${size}^`, '-gravity', 'Center', '-extent', `${size}x${size}`,
+        '-crop', `${cell}x${cell}+${c * cell}+${r * cell}`, '+repage',
         ')',
         '-geometry', `+${tc * cell}+${tr * cell}`,
         '-composite'
@@ -782,8 +782,13 @@ async function handleMediaCommand(message, command, args) {
   // Download input
   let inputPath;
   try {
-    const ext = isVideoCmd ? '' : '.png';
-    inputPath = await fetchToTemp(imageUrl, ext);
+    // FIX: preserve extension from URL for video commands
+    if (isVideoCmd) {
+      const urlExt = path.extname(imageUrl.split('?')[0]).toLowerCase() || '.mp4';
+      inputPath = await fetchToTemp(imageUrl, urlExt);
+    } else {
+      inputPath = await fetchToTemp(imageUrl, '.png');
+    }
   } catch (e) {
     return message.reply({ embeds: [errorEmbed(`Failed to download image: ${e.message}`)] });
   }
@@ -795,7 +800,7 @@ async function handleMediaCommand(message, command, args) {
     // Determine output format
     const isGifCommand = ['spin', 'rainbow', 'zoom', 'wormhole', 'scramble', 'gifmagik', 'circuitboard'].includes(command);
     const isVideoCommand = ['speed', 'reverse'].includes(command);
-    const inputExt = path.extname(imageUrl.split('?')[0]).toLowerCase();
+    const inputExt = path.extname(inputPath).toLowerCase();
 
     if (isVideoCommand) {
       const isGifInput = inputExt === '.gif';
@@ -811,19 +816,19 @@ async function handleMediaCommand(message, command, args) {
 
     // Dispatch to the right function
     switch (command) {
-      case 'grayscale':   await doGrayscale(inputPath, outputPath); break;
-      case 'blur':        await doBlur(inputPath, outputPath, args[0]); break;
-      case 'invert':      await doInvert(inputPath, outputPath); break;
-      case 'pixelate':    await doPixelate(inputPath, outputPath); break;
-      case 'deepfry':     await doDeepFry(inputPath, outputPath); break;
-      case 'fisheye':     await doFisheye(inputPath, outputPath); break;
-      case 'swirl':       await doSwirl(inputPath, outputPath, args[0]); break;
-      case 'spread':      await doSpread(inputPath, outputPath, args[0]); break;
-      case 'bloom':       await doBloom(inputPath, outputPath); break;
-      case 'neon':        await doNeon(inputPath, outputPath); break;
-      case 'magik':       await doMagik(inputPath, outputPath); break;
-      case 'zoomblur':    await doZoomBlur(inputPath, outputPath); break;
-      case 'caption':     await doCaption(inputPath, outputPath, args.join(' ') || 'caption'); break;
+      case 'grayscale': await doGrayscale(inputPath, outputPath); break;
+      case 'blur': await doBlur(inputPath, outputPath, args[0]); break;
+      case 'invert': await doInvert(inputPath, outputPath); break;
+      case 'pixelate': await doPixelate(inputPath, outputPath); break;
+      case 'deepfry': await doDeepFry(inputPath, outputPath); break;
+      case 'fisheye': await doFisheye(inputPath, outputPath); break;
+      case 'swirl': await doSwirl(inputPath, outputPath, args[0]); break;
+      case 'spread': await doSpread(inputPath, outputPath, args[0]); break;
+      case 'bloom': await doBloom(inputPath, outputPath); break;
+      case 'neon': await doNeon(inputPath, outputPath); break;
+      case 'magik': await doMagik(inputPath, outputPath); break;
+      case 'zoomblur': await doZoomBlur(inputPath, outputPath); break;
+      case 'caption': await doCaption(inputPath, outputPath, args.join(' ') || 'caption'); break;
       case 'meme': {
         // args: top | bottom (split by |), or first arg = top, rest = bottom
         const full = args.join(' ');
@@ -838,25 +843,25 @@ async function handleMediaCommand(message, command, args) {
         break;
       }
       case 'speechbubble': await doSpeechBubble(inputPath, outputPath, args.join(' ') || '...'); break;
-      case 'heart':      await doHeart(inputPath, outputPath, args.join(' ') || null); break;
-      case 'flag':       await doFlag(inputPath, outputPath, 1); break;
-      case 'flag2':      await doFlag(inputPath, outputPath, 2); break;
-      case 'toaster':    await doToaster(inputPath, outputPath); break;
-      case 'billboard':  await doBillboard(inputPath, outputPath); break;
-      case 'rubiks':     await doRubiks(inputPath, outputPath); break;
-      case 'tattoo':     await doTattoo(inputPath, outputPath); break;
+      case 'heart': await doHeart(inputPath, outputPath, args.join(' ') || null); break;
+      case 'flag': await doFlag(inputPath, outputPath, 1); break;
+      case 'flag2': await doFlag(inputPath, outputPath, 2); break;
+      case 'toaster': await doToaster(inputPath, outputPath); break;
+      case 'billboard': await doBillboard(inputPath, outputPath); break;
+      case 'rubiks': await doRubiks(inputPath, outputPath); break;
+      case 'tattoo': await doTattoo(inputPath, outputPath); break;
       case 'circuitboard': await doCircuitBoard(inputPath, outputPath); break;
-      case 'fortune':    await doFortune(inputPath, outputPath); break;
-      case 'valentine':  await doValentine(inputPath, outputPath); break;
-      case 'book':       await doBook(inputPath, outputPath); break;
-      case 'spin':       await doSpin(inputPath, outputPath); break;
-      case 'rainbow':    await doRainbow(inputPath, outputPath); break;
-      case 'zoom':       await doZoom(inputPath, outputPath); break;
-      case 'wormhole':   await doWormhole(inputPath, outputPath); break;
-      case 'scramble':   await doScramble(inputPath, outputPath); break;
-      case 'gifmagik':   await doGifMagik(inputPath, outputPath); break;
-      case 'speed':      await doSpeed(inputPath, outputPath, args[0]); break;
-      case 'reverse':    await doReverse(inputPath, outputPath); break;
+      case 'fortune': await doFortune(inputPath, outputPath); break;
+      case 'valentine': await doValentine(inputPath, outputPath); break;
+      case 'book': await doBook(inputPath, outputPath); break;
+      case 'spin': await doSpin(inputPath, outputPath); break;
+      case 'rainbow': await doRainbow(inputPath, outputPath); break;
+      case 'zoom': await doZoom(inputPath, outputPath); break;
+      case 'wormhole': await doWormhole(inputPath, outputPath); break;
+      case 'scramble': await doScramble(inputPath, outputPath); break;
+      case 'gifmagik': await doGifMagik(inputPath, outputPath); break;
+      case 'speed': await doSpeed(inputPath, outputPath, args[0]); break;
+      case 'reverse': await doReverse(inputPath, outputPath); break;
       default:
         return message.reply({ embeds: [errorEmbed(`Unknown media command: \`${command}\``)] });
     }

@@ -229,6 +229,10 @@ async function trackTopVcVoiceState(oldState, newState, client) {
   const userId = newState.id || oldState.id;
   if (!guildId || !userId) return;
 
+  // FIX: Skip bots
+  const member = newState.member || oldState.member;
+  if (member?.user?.bot) return;
+
   const db = getGuildDb(guildId);
   const userData = getOrCreateUserStats(db, guildId, userId);
   const now = Date.now();
@@ -349,6 +353,10 @@ async function buildVoiceTimeLeaderboard(guild, db) {
 
   const sorted = Object.entries(guildStats)
     .map(([uid, data]) => {
+      // FIX: Skip bots
+      const member = guild.members.cache.get(uid);
+      if (member?.user?.bot) return null;
+
       let total7d = 0;
       for (const [date, ms] of Object.entries(data.daily || {})) {
         if (date >= cutoff) total7d += ms;
@@ -357,7 +365,7 @@ async function buildVoiceTimeLeaderboard(guild, db) {
       total7d += getLiveTotal(guild, uid, data, 'daily');
       return { uid, total7d };
     })
-    .filter(u => u.total7d > 0)
+    .filter(u => u && u.total7d > 0)
     .sort((a, b) => b.total7d - a.total7d)
     .slice(0, 10);
 
@@ -381,6 +389,10 @@ async function buildStreamsLeaderboard(guild, db) {
 
   const sorted = Object.entries(guildStats)
     .map(([uid, data]) => {
+      // FIX: Skip bots
+      const member = guild.members.cache.get(uid);
+      if (member?.user?.bot) return null;
+
       // COMBINED: stream time + camera time
       let total7d = 0;
       for (const [date, ms] of Object.entries(data.streamDaily || {})) {
@@ -394,7 +406,7 @@ async function buildStreamsLeaderboard(guild, db) {
       total7d += getLiveTotal(guild, uid, data, 'cameraDaily');
       return { uid, total7d };
     })
-    .filter(u => u.total7d > 0)
+    .filter(u => u && u.total7d > 0)
     .sort((a, b) => b.total7d - a.total7d)
     .slice(0, 10);
 

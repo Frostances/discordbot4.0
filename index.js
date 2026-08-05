@@ -11,6 +11,7 @@ const path = require('path');
 const { ActivityType } = require('discord.js');
 const { SimpleShardingStrategy } = require('@discordjs/ws');
 const { applyMutePermsToNewChannel } = require('./modules/mute');
+const { updateSeen } = require('./modules/information');
 
 
 // ══════════════════════════════════════════════════════════

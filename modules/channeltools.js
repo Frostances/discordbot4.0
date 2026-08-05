@@ -90,7 +90,7 @@ async function handleDump(ctx, args) {
     if (role) members = members.filter(m => m.roles.cache.has(role.id));
     members = members.filter(m => !m.user.bot).sort((a, b) => a.user.username.localeCompare(b.user.username));
     if (!members.length) return ctx.reply({ content: `No members found${role ? ` with role <@&${role.id}>` : ''}.` });
-    const lines = members.map(m => `<@${m.id}> — \`${m.id}\` — joined <t:${Math.floor(m.joinedTimestamp / 1000)}:R>`);
+    const lines = members.map(m => `<@${m.id}> — \`${m.id}\` — joined `);
     const pages = chunk(lines, 15).map((pg, i) => ({
       title: `👥 Members${role ? ` with ${role.name}` : ''} [${members.length}] — Page ${i + 1}`,
       description: pg.join('\n'),
@@ -122,89 +122,102 @@ async function handleDump(ctx, args) {
 async function handleNewMembers(ctx, args) {
   if (!staffCheck(ctx)) return ctx.reply({ content: '❌ No permission.', ephemeral: true });
 
-  // Parse duration: supports "2d", "5d", "10d", or plain numbers
-  let raw = args[0] || '7';
-  const daysMatch = raw.match(/^(\d+)d?$/i);
-  let days = daysMatch ? parseInt(daysMatch[1]) : parseInt(raw);
-  if (isNaN(days) || days < 1) days = 7;
-  days = Math.min(days, 14); // max 2 weeks
+  let replyMsg;
+  try {
+    // Parse duration: supports "2d", "5d", "10d", or plain numbers. Default = 1 (today).
+    let raw = args[0] || '1';
+    const daysMatch = raw.match(/^(\d+)d?$/i);
+    let days = daysMatch ? parseInt(daysMatch[1]) : parseInt(raw);
+    if (isNaN(days) || days < 1) days = 1;
+    days = Math.min(days, 14); // max 2 weeks
 
-  const cutoff = Date.now() - days * 86_400_000;
+    const cutoff = Date.now() - days * 86_400_000;
 
-  await ctx.guild.members.fetch();
-  const recent = [...ctx.guild.members.cache.values()]
-    .filter(m => !m.user.bot && m.joinedTimestamp > cutoff)
-    .sort((a, b) => b.joinedTimestamp - a.joinedTimestamp);
+    // Send immediate feedback so the user knows the bot is working
+    replyMsg = await ctx.reply({ content: `🔍 Fetching new members from the last **${days}** day(s)...` });
 
-  if (!recent.length) return ctx.reply({ content: `No new members in the last **${days}** day(s).` });
+    await ctx.guild.members.fetch();
+    const recent = [...ctx.guild.members.cache.values()]
+      .filter(m => !m.user.bot && m.joinedTimestamp && m.joinedTimestamp > cutoff)
+      .sort((a, b) => b.joinedTimestamp - a.joinedTimestamp);
 
-  // Build pages (15 per page)
-  const perPage = 15;
-  const totalPages = Math.ceil(recent.length / perPage);
+    if (!recent.length) {
+      return replyMsg.edit({ content: `No new members in the last **${days}** day(s).`, embeds: [], components: [] });
+    }
 
-  function buildEmbed(pageIdx) {
-    const start = pageIdx * perPage;
-    const pageMembers = recent.slice(start, start + perPage);
-    const lines = pageMembers.map((m, i) =>
-      `**${start + i + 1}.** <@${m.id}> — joined <t:${Math.floor(m.joinedTimestamp / 1000)}:R>`
-    );
+    // Build pages (15 per page)
+    const perPage = 15;
+    const totalPages = Math.ceil(recent.length / perPage);
 
-    return new EmbedBuilder()
-      .setTitle(`🆕 New Members — Last ${days} Day(s)`)
-      .setDescription(lines.join('\n'))
-      .setColor(COLORS.success)
-      .setFooter({ text: `Total: ${recent.length} members • Page ${pageIdx + 1}/${totalPages}` })
-      .setTimestamp();
+    function buildEmbed(pageIdx) {
+      const start = pageIdx * perPage;
+      const pageMembers = recent.slice(start, start + perPage);
+      const lines = pageMembers.map((m, i) =>
+        `**${start + i + 1}.** <@${m.id}> — joined <t:${Math.floor(m.joinedTimestamp / 1000)}:R>`
+      );
+
+      return new EmbedBuilder()
+        .setTitle(`🆕 New Members — Last ${days} Day(s)`)
+        .setDescription(lines.join('\n'))
+        .setColor(COLORS.success)
+        .setFooter({ text: `Total: ${recent.length} members • Page ${pageIdx + 1}/${totalPages}` })
+        .setTimestamp();
+    }
+
+    function buildRow(pageIdx) {
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('nm_first').setEmoji('⏮️').setStyle(ButtonStyle.Secondary).setDisabled(pageIdx === 0),
+        new ButtonBuilder().setCustomId('nm_prev').setEmoji('◀️').setStyle(ButtonStyle.Primary).setDisabled(pageIdx === 0),
+        new ButtonBuilder().setCustomId('nm_next').setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(pageIdx >= totalPages - 1),
+        new ButtonBuilder().setCustomId('nm_last').setEmoji('⏭️').setStyle(ButtonStyle.Secondary).setDisabled(pageIdx >= totalPages - 1),
+      );
+    }
+
+    const authorId = getAuthorId(ctx);
+    const embed = buildEmbed(0);
+    const components = totalPages > 1 ? [buildRow(0)] : [];
+
+    await replyMsg.edit({ content: '', embeds: [embed], components });
+
+    if (totalPages <= 1) return;
+
+    const collector = replyMsg.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: 120_000,
+      filter: i => {
+        if (i.user.id !== authorId) {
+          i.reply({ content: '❌ This menu belongs to someone else.', ephemeral: true });
+          return false;
+        }
+        return true;
+      },
+    });
+
+    let current = 0;
+    collector.on('collect', async i => {
+      if (i.customId === 'nm_first') current = 0;
+      else if (i.customId === 'nm_prev') current = Math.max(0, current - 1);
+      else if (i.customId === 'nm_next') current = Math.min(totalPages - 1, current + 1);
+      else if (i.customId === 'nm_last') current = totalPages - 1;
+      await i.update({ embeds: [buildEmbed(current)], components: [buildRow(current)] });
+    });
+
+    collector.on('end', async () => {
+      try {
+        const row = buildRow(current);
+        row.components.forEach(b => b.setDisabled(true));
+        await replyMsg.edit({ components: [row] });
+      } catch {}
+    });
+  } catch (err) {
+    console.error('[newmembers] Error:', err);
+    const errText = `❌ Failed to fetch new members: ${err.message || 'Unknown error'}`;
+    if (replyMsg) {
+      await replyMsg.edit({ content: errText, embeds: [], components: [] }).catch(() => {});
+    } else {
+      await ctx.reply({ content: errText }).catch(() => {});
+    }
   }
-
-  function buildRow(pageIdx) {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('nm_first').setEmoji('⏮️').setStyle(ButtonStyle.Secondary).setDisabled(pageIdx === 0),
-      new ButtonBuilder().setCustomId('nm_prev').setEmoji('◀️').setStyle(ButtonStyle.Primary).setDisabled(pageIdx === 0),
-      new ButtonBuilder().setCustomId('nm_next').setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(pageIdx >= totalPages - 1),
-      new ButtonBuilder().setCustomId('nm_last').setEmoji('⏭️').setStyle(ButtonStyle.Secondary).setDisabled(pageIdx >= totalPages - 1),
-    );
-  }
-
-  const authorId = getAuthorId(ctx);
-  const msg = await ctx.reply({
-    embeds: [buildEmbed(0)],
-    components: totalPages > 1 ? [buildRow(0)] : [],
-    fetchReply: true,
-  });
-
-  if (totalPages <= 1) return msg;
-
-  const collector = msg.createMessageComponentCollector({
-    componentType: ComponentType.Button,
-    time: 120_000,
-    filter: i => {
-      if (i.user.id !== authorId) {
-        i.reply({ content: '❌ This menu belongs to someone else.', ephemeral: true });
-        return false;
-      }
-      return true;
-    },
-  });
-
-  let current = 0;
-  collector.on('collect', async i => {
-    if (i.customId === 'nm_first') current = 0;
-    else if (i.customId === 'nm_prev') current = Math.max(0, current - 1);
-    else if (i.customId === 'nm_next') current = Math.min(totalPages - 1, current + 1);
-    else if (i.customId === 'nm_last') current = totalPages - 1;
-    await i.update({ embeds: [buildEmbed(current)], components: [buildRow(current)] });
-  });
-
-  collector.on('end', async () => {
-    try {
-      const row = buildRow(current);
-      row.components.forEach(b => b.setDisabled(true));
-      await msg.edit({ components: [row] });
-    } catch {}
-  });
-
-  return msg;
 }
 
 // ══════════════════════════════════════════════════════════

@@ -13,6 +13,27 @@ const { SimpleShardingStrategy } = require('@discordjs/ws');
 const { applyMutePermsToNewChannel } = require('./modules/mute');
 const { updateSeen } = require('./modules/information');
 
+// ══════════════════════════════════════════════════════════
+// INFORMATION COMMANDS (from modules/information.js)
+// ══════════════════════════════════════════════════════════
+const {
+  handleSeen,
+  handleMembercount,
+  handleRoleinfo,
+  handleChannelinfo,
+  handleServeravatar,
+  handleServerbanner,
+  handleBanner,
+  handleGuildicon,
+  handleGuildbanner,
+  handleSplash,
+  handleSticker,
+  handleRotate,
+  handleCompress,
+  handleInvert,
+  handleEmoji,
+} = require('./modules/information');
+
 
 // ══════════════════════════════════════════════════════════
 //  CORE UTILITIES
@@ -1053,7 +1074,10 @@ const MOD_COMMANDS = new Set([
 ]);
 
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.guild) return;
+      if (message.author.bot || !message.guild) return;
+
+      // Track seen status for ,seen command
+      updateSeen(message.guild.id, message.author.id);
 
     // ── Passive systems ──
     if (isModuleEnabled(message.guild.id, 'automod'))  await runAutoMod(message).catch(() => {});
@@ -1436,6 +1460,25 @@ client.on('messageCreate', async (message) => {
             const target = message.mentions.users.first() || null;
             return handleAvatar(message, target);
         }
+
+        // ══════════════════════════════════════════════════════════
+        // INFORMATION COMMANDS (from modules/information.js)
+        // ══════════════════════════════════════════════════════════
+        if (command === 'seen') return handleSeen(message, args);
+        if (command === 'membercount') return handleMembercount(message);
+        if (command === 'roleinfo') return handleRoleinfo(message, args);
+        if (command === 'channelinfo') return handleChannelinfo(message, args);
+        if (command === 'serveravatar') return handleServeravatar(message, args);
+        if (command === 'serverbanner') return handleServerbanner(message, args);
+        if (command === 'banner') return handleBanner(message, args);
+        if (command === 'guildicon') return handleGuildicon(message, args);
+        if (command === 'guildbanner') return handleGuildbanner(message, args);
+        if (command === 'splash') return handleSplash(message, args);
+        if (command === 'sticker') return handleSticker(message, args);
+        if (command === 'rotate') return handleRotate(message, args);
+        if (command === 'compress') return handleCompress(message, args);
+        if (command === 'invert') return handleInvert(message, args);
+        if (command === 'emoji') return handleEmoji(message, args);
 
      // ── Reaction System ──
      if (command === 'reaction' || command === 'previousreact' || command === 'noselfreact') return handleReaction(message, command, args);

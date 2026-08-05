@@ -375,15 +375,6 @@ const ACTIONS = {
         color: '#FF69B4',
         customGif: 'https://i.pinimg.com/originals/1c/91/4f/1c914fc50a261eb6678978e475bfeb3f.gif'
     },
-    kill: {
-        api: 'waifu',
-        type: 'kill',
-        label: 'killed',
-        emoji: '💀',
-        target: true,
-        color: '#2F3136',
-        customGif: 'https://media.tenor.com/NbBCakbfZnkAAAAM/die-kill.gif'
-    },
     cringe: {
         api: 'waifu',
         type: 'cringe',
@@ -682,15 +673,6 @@ const ACTIONS = {
         color: '#95A5A6',
         customGif: 'https://i.pinimg.com/originals/9e/29/61/9e29614354a9b8c224b130e9332490b3.gif'
     },
-    shoot: {
-        api: 'nekos',
-        type: 'shoot',
-        label: 'shot',
-        emoji: '🔫',
-        target: true,
-        color: '#ED4245',
-        customGif: 'https://nekos.best/api/v2/shoot/a44f2a4a-bde1-414a-951f-fb4fb0e2a2cc.gif'
-    },
     bored: {
         api: 'nekos',
         type: 'bored',
@@ -775,11 +757,6 @@ const PAIR_TEMPLATES = {
         (a, t, o) => `GLOMP #**${o}**! **${a}** tackled **${t}** with love! 💕`,
         (a, t, o) => `**${t}** got glomped by **${a}** again — **${o}** times! 🥰`,
     ],
-    kill: [
-        (a, t, o) => `**${a}** killed **${t}** for the **${o}** time! F in chat 💀`,
-        (a, t, o) => `RIP **${t}**. Killed by **${a}** — death #**${o}**! 👻`,
-        (a, t, o) => `**${t}** has been eliminated by **${a}** for the **${o}** time. GG 💀`,
-    ],
     bully: [
         (a, t, o) => `**${a}** bullied **${t}** for the **${o}** time! Not cool 😤`,
         (a, t, o) => `Bully incident #**${o}**! **${a}** is picking on **${t}** again 😡`,
@@ -824,11 +801,6 @@ const PAIR_TEMPLATES = {
         (a, t, o) => `**${a}** smacked **${t}** for the **${o}** time! WHAP 💥`,
         (a, t, o) => `Smack #**${o}**! **${t}** took another hit from **${a}** 😵`,
         (a, t, o) => `**${t}** got smacked by **${a}** for the **${o}** time. OOF 💢`,
-    ],
-    shoot: [
-        (a, t, o) => `**${a}** shot **${t}** for the **${o}** time! BANG 🔫`,
-        (a, t, o) => `BANG #**${o}**! **${a}** took aim at **${t}** again 💥`,
-        (a, t, o) => `**${t}** got shot by **${a}** for the **${o}** time. Ouch 😵`,
     ],
     nuzzle: [
         (a, t, o) => `**${a}** nuzzled **${t}** for the **${o}** time! So soft~ 🥰`,
@@ -943,7 +915,6 @@ const SELF_MESSAGES = {
     bonk: `You can't bonk yourself! Go to horny jail alone I guess 🔨`,
     poke: `Stop poking yourself. Weirdo 👉`,
     tickle: `You can't tickle yourself effectively. Science fact 🧪`,
-    kill: `Existential crisis mode activated 💀`,
     yeet: `You tried to yeet yourself into another dimension 🚀`,
 };
 

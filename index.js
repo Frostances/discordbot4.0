@@ -102,6 +102,7 @@ const { onThreadCreate }                                 = require('./modules/th
 const { handleStaffCommand }                             = require('./modules/staffSystem');
 const { handleHelp }                                     = require('./modules/help');
 const { handleModuleCommand, isModuleEnabled }           = require('./modules/moduleSystem');
+const { handleSettingsCommand } = require('./modules/settingsCommand');
 const { handlePing, handleBotStats, handleUserInfo,
         handleServerInfo, handleAvatar }                 = require('./modules/info');
 const {
@@ -997,7 +998,7 @@ const ALIASES = {
     // Nick
     fn: 'forcenickname',
     // Role
-    tr: 'temprole',
+    r: 'role', tr: 'temprole',
     // Voice
     ma: 'moveall', pull: 'drag',
     // Sticky
@@ -1011,7 +1012,7 @@ const ALIASES = {
     // Aliases
     caselog: 'case', modhistory: 'moderationhistory',
     // Cases
-    c: 'case', r: 'reason', hist: 'history', ms: 'modstats', warns: 'warnings',
+    c: 'case', rsn: 'reason', hist: 'history', ms: 'modstats', warns: 'warnings',
     // Warn
     w: 'warn',
     // Restrict
@@ -1019,11 +1020,15 @@ const ALIASES = {
     // Help
     h: 'help', '?': 'help',
     // Fun
-    gw: 'guessword',
+    // gw removed from guessword → now on giveaway
     // Info
     bs: 'botstats', stats: 'botstats', ui: 'userinfo', si: 'serverinfo', av: 'avatar', pfp: 'avatar',
+    ci: 'channelinfo', ri: 'roleinfo', gi: 'guildicon', gb: 'guildbanner',
+    sb: 'serverbanner', sbanner: 'serverbanner',
+    sa: 'serveravatar', savatar: 'serveravatar',
+    mc: 'membercount',
     // Config
-    cfg: 'config', settings: 'config',
+    cfg: 'config',
     // Levels
     lvl: 'levels', rank: 'levels', sl: 'setlevel',
     // Misc
@@ -1049,6 +1054,10 @@ const ALIASES = {
      fakeperms: 'fakepermissions',
      // Invoke
      inv: 'invoke',
+     // Roleplay
+     rp: 'roleplay',
+     // Settings
+     set: 'settings',
 };
 
 // ══════════════════════════════════════════════════════════
@@ -1189,7 +1198,10 @@ client.on('messageCreate', async (message) => {
             return message.channel.send(payload);
         }
 
-        // ── Config (replaces .settings) ──
+        // ── Settings ──
+        if (command === 'settings') return handleSettingsCommand(message, args);
+
+        // ── Config ──
         if (command === 'config') return handleConfigCommand(message, args);
 
         // ── Staff ──
@@ -1308,7 +1320,7 @@ client.on('messageCreate', async (message) => {
         if (command === 'reactionrole' || command === 'rr') return handleReactionRoleCommand(message, args);
 
         // ── Giveaways ──
-        if (command === 'giveaway' || command === 'gw2' || command === 'giveaways') return handleGiveawayCommand(message, args, client);
+        if (command === 'giveaway' || command === 'gw' || command === 'gw2' || command === 'giveaways') return handleGiveawayCommand(message, args, client);
 
         // ── TOPVC ──
         if (command === 'topvc') return handleTopVcCommand(message, args);
@@ -1411,6 +1423,12 @@ client.on('messageCreate', async (message) => {
                 { name: 'Today',     value: d.lastStreakDate === today ? '✅ Done' : '❌ Not yet', inline: true },
                 { name: 'Last Date', value: d.lastStreakDate || 'Never',                inline: true },
             ).setThumbnail(target.displayAvatarURL()).setColor('#ff6b35').setFooter({ text: 'Resets at 12:00 AM Egypt time' })] });
+        }
+
+        // ── Roleplay toggle ──
+        if (command === 'roleplay') {
+            if (!isAdmin(message.member)) return message.reply('❌ Only administrators can enable roleplay.');
+            return handleModuleCommand(message, ['enable', 'roleplay']);
         }
 
         // ── Roleplay / reaction GIFs ──

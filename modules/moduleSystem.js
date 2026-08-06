@@ -19,6 +19,7 @@ const MODULES = {
   swears: 'Swears',
   guessword: 'Guess Word',
   filters: 'Filters',
+  roleplay: 'Roleplay',
 };
 
 const MODULE_ORDER = [
@@ -33,6 +34,7 @@ const MODULE_ORDER = [
   'swears',
   'guessword',
   'filters',
+  'roleplay',
 ];
 
 // ══════════════════════════════════════════════════════════

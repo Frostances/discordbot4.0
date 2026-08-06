@@ -133,10 +133,6 @@ async function handleMembercount(message) {
   const total = guild.memberCount;
   const bots = guild.members.cache.filter(m => m.user.bot).size;
   const humans = total - bots;
-  const online = guild.members.cache.filter(m => m.presence?.status === 'online' && !m.user.bot).size;
-  const dnd = guild.members.cache.filter(m => m.presence?.status === 'dnd' && !m.user.bot).size;
-  const idle = guild.members.cache.filter(m => m.presence?.status === 'idle' && !m.user.bot).size;
-  const offline = humans - online - dnd - idle;
 
   return message.reply({
     embeds: [new EmbedBuilder()
@@ -147,10 +143,6 @@ async function handleMembercount(message) {
         { name: 'Total', value: total.toLocaleString(), inline: true },
         { name: 'Humans', value: humans.toLocaleString(), inline: true },
         { name: 'Bots', value: bots.toLocaleString(), inline: true },
-        { name: '🟢 Online', value: online.toLocaleString(), inline: true },
-        { name: '⛔ DND', value: dnd.toLocaleString(), inline: true },
-        { name: '🌙 Idle', value: idle.toLocaleString(), inline: true },
-        { name: '⚫ Offline', value: offline.toLocaleString(), inline: true },
       )
       .setFooter({ text: guild.name })
       .setTimestamp()

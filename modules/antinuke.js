@@ -77,7 +77,7 @@ function getAntinukeConfig(guildId) {
     whitelist: [],
     modules: {},
     permWatch: {
-      grant: [...DANGEROUS_PERMS],
+      grant: [],
       remove: []
     }
   });
@@ -460,6 +460,59 @@ async function handleAntiNukeCommand(message, args) {
     }
   }
 
+  // ── Permissions list / toggle ──
+  if (sub === 'permissions') {
+    const action = args[1]?.toLowerCase();
+
+    // List mode
+    if (action === 'list' || !action) {
+      const grantList = cfg.permWatch?.grant || [];
+      const removeList = cfg.permWatch?.remove || [];
+
+      const grantLines = DANGEROUS_PERMS.map(p => `${grantList.includes(p) ? '🟢' : '🔴'} \`${p}\``);
+      const removeLines = DANGEROUS_PERMS.map(p => `${removeList.includes(p) ? '🟢' : '🔴'} \`${p}\``);
+
+      const embed = new EmbedBuilder()
+        .setTitle('🛡️ Permission Watch Lists')
+        .setColor('#2F3136')
+        .addFields(
+          { name: `Grant Watch (${grantList.length}/${DANGEROUS_PERMS.length})`, value: grantLines.join('\n'), inline: true },
+          { name: `Remove Watch (${removeList.length}/${DANGEROUS_PERMS.length})`, value: removeLines.join('\n'), inline: true },
+        )
+        .setFooter({ text: 'Use ,antinuke permissions grant <perm> or ,antinuke permissions remove <perm>' });
+
+      return message.reply({ embeds: [embed] });
+    }
+
+    // Grant / remove toggle mode
+    if (!['grant', 'remove'].includes(action)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Usage: `,antinuke permissions list` or `,antinuke permissions grant/remove <permission>`').setColor('#F04747')] });
+    }
+
+    if (!await isOwnerOrAdmin(message)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner or antinuke admins can manage permissions.').setColor('#F04747')] });
+    }
+
+    const permName = args[2]?.toLowerCase();
+    if (!permName || !DANGEROUS_PERMS.includes(permName)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`❌ Invalid permission. Available: ${DANGEROUS_PERMS.join(', ')}`).setColor('#F04747')] });
+    }
+
+    cfg.permWatch = cfg.permWatch || { grant: [], remove: [] };
+    const list = cfg.permWatch[action] || [];
+
+    if (list.includes(permName)) {
+      cfg.permWatch[action] = list.filter(p => p !== permName);
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`🔴 Removed **${permName}** from ${action} watch list.`).setColor('#F04747')] });
+    } else {
+      list.push(permName);
+      cfg.permWatch[action] = list;
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`🟢 Added **${permName}** to ${action} watch list.`).setColor('#43B581')] });
+    }
+  }
+
   // ── Module configuration ──
   if (MODULES.includes(sub)) {
     if (!await isOwnerOrAdmin(message)) {
@@ -525,9 +578,10 @@ async function sendConfig(message) {
 
   const moduleLines = [];
   for (const mod of MODULES) {
+    if (mod === 'botadd') continue;
     const m = getModuleConfig(cfg, mod);
     const label = MODULE_LABELS[mod];
-    moduleLines.push(`${label}: ${m.enabled ? '✅' : ''}`);
+    moduleLines.push(`${label}: ${m.enabled ? '<:checkmark:1528890895859056680>' : ''}`);
   }
   embed.addFields({ name: 'Modules', value: moduleLines.join('\n'), inline: true });
 
@@ -665,7 +719,7 @@ async function setupAntiNukeListeners(client) {
     if (type) await handleAntiNukeTrigger(client, guild, type, executorId);
   });
 
-  // Permission grant/remove watch
+  // Permission grant/remove watch — immediate revert + punish
   client.on('guildAuditLogEntryCreate', async (entry, guild) => {
     if (!guild) return;
     const executorId = entry.executorId;
@@ -688,24 +742,40 @@ async function setupAntiNukeListeners(client) {
     const grantWatch = cfg.permWatch?.grant || [];
     const removeWatch = cfg.permWatch?.remove || [];
 
-    let triggered = false;
+    let triggeredPerm = null;
+    let triggeredAction = null;
+
     for (const permName of grantWatch) {
       const bit = PERM_BITS[permName];
-      if (bit && (added & bit) === bit) { triggered = true; break; }
+      if (bit && (added & bit) === bit) { triggeredPerm = permName; triggeredAction = 'grant'; break; }
     }
-    if (!triggered) {
+    if (!triggeredPerm) {
       for (const permName of removeWatch) {
         const bit = PERM_BITS[permName];
-        if (bit && (removed & bit) === bit) { triggered = true; break; }
+        if (bit && (removed & bit) === bit) { triggeredPerm = permName; triggeredAction = 'remove'; break; }
       }
     }
 
-    if (triggered) {
-      const limit = 3;
-      const didTrigger = trackAction(guild.id, executorId, 'permissions', limit);
-      if (didTrigger) {
-        await punish(guild, executorId, 'ban', 'permissions', cfg.logChannel);
-      }
+    if (triggeredPerm) {
+      // Revert the permission change immediately
+      try {
+        const role = await guild.roles.fetch(entry.targetId);
+        if (role) {
+          await role.setPermissions(oldPerms, `AntiNuke: reverted ${triggeredAction} of ${triggeredPerm}`);
+        }
+      } catch {}
+
+      // Punish immediately on first offense (no threshold)
+      await punish(guild, executorId, 'ban', `permissions (${triggeredAction} ${triggeredPerm})`, cfg.logChannel);
+
+      // Log to general logging system
+      try {
+        const { onAntiNukeTrigger } = require('./logging');
+        const member = await guild.members.fetch(executorId).catch(() => null);
+        if (member) {
+          await onAntiNukeTrigger(guild, 'antinuke', member, 'ban', `Reverted ${triggeredAction} of ${triggeredPerm} on <@&${entry.targetId}>`);
+        }
+      } catch {}
     }
   });
 }

@@ -187,15 +187,26 @@ async function handleRole(ctx, args, client) {
       )] });
   }
 
-  // ── Implied add: .role @user @role (no subcommand) ──
+  // ── Implied toggle: .role @user @role (no subcommand) ──
   if (target && role && !['add','remove','create','delete','edit','color','icon','mentionable','hoist','restore','humans','bots','has','cancel'].includes(sub)) {
-    await target.roles.add(role, `Role added by <@${getAuthorId(ctx)}>`);
-    createCase(ctx.guild.id, { type: 'role', targetId: target.id, executorId: getAuthorId(ctx), reason: `Added <@&${role.id}>` });
-    return ctx.reply({ embeds: [base(COLORS.success).setTitle('✅ Role Added')
-      .addFields(
-        { name: '👤 User', value: `${target.user}`, inline: true },
-        { name: '🎭 Role', value: `<@&${role.id}>`, inline: true },
-      )] });
+    const hasRole = target.roles.cache.has(role.id);
+    if (hasRole) {
+      await target.roles.remove(role, `Role removed by <@${getAuthorId(ctx)}>`);
+      createCase(ctx.guild.id, { type: 'role', targetId: target.id, executorId: getAuthorId(ctx), reason: `Removed <@&${role.id}>` });
+      return ctx.reply({ embeds: [base(COLORS.error).setTitle('✅ Role Removed')
+        .addFields(
+          { name: '👤 User', value: `${target.user}`, inline: true },
+          { name: '🎭 Role', value: `<@&${role.id}>`, inline: true },
+        )] });
+    } else {
+      await target.roles.add(role, `Role added by <@${getAuthorId(ctx)}>`);
+      createCase(ctx.guild.id, { type: 'role', targetId: target.id, executorId: getAuthorId(ctx), reason: `Added <@&${role.id}>` });
+      return ctx.reply({ embeds: [base(COLORS.success).setTitle('✅ Role Added')
+        .addFields(
+          { name: '👤 User', value: `${target.user}`, inline: true },
+          { name: '🎭 Role', value: `<@&${role.id}>`, inline: true },
+        )] });
+    }
   }
 
   // ── .role add all @role (humans only) ──
@@ -412,7 +423,7 @@ async function handleRole(ctx, args, client) {
     .setDescription([
       '**Member:**',
       '`.role add @user @role` `.role remove @user @role`',
-      '`.role @user @role` (implied add)',
+      '`.role @user @role` (implied toggle)',
       '`.role @user <roleName>` (smart search)',
       '`.role restore @user`',
       '',

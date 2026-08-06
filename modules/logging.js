@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 // Cache webhooks to avoid recreating them
 const webhookCache = new Map();
 
-const ALL_EVENTS = ['messages', 'members', 'roles', 'channels', 'invites', 'emojis', 'voice'];
+const ALL_EVENTS = ['messages', 'members', 'roles', 'channels', 'invites', 'emojis', 'voice', 'antinuke'];
 
 function getLogConfig(db) {
     return db.get('logging', { channels: {}, ignored: { channels: [], members: [] } });
@@ -234,6 +234,19 @@ async function handleLogCommand(message, args) {
         return message.reply({ embeds: [mkInfo('Log Colors', lines.join('\n'))] });
     }
 
+    // ── log show ──
+    if (sub === 'show') {
+      const embed = new EmbedBuilder().setTitle('📋 Logging Events').setColor('#5865F2');
+      const lines = ALL_EVENTS.map(ev => {
+        const enabledIn = Object.entries(cfg.channels)
+          .filter(([, ch]) => ch.events.includes(ev))
+          .map(([id]) => `<#${id}>`);
+        return `${enabledIn.length ? '🟢' : '🔴'} **${ev}**${enabledIn.length ? ' → ' + enabledIn.join(', ') : ''}`;
+      });
+      embed.setDescription(lines.join('\n') || 'No events configured.');
+      return message.reply({ embeds: [embed] });
+    }
+
     return message.reply({ embeds: [mkInfo('Log Commands',
         '`,log` — view config\n' +
         '`,log add #channel <event>` — add logging event\n' +
@@ -297,7 +310,7 @@ async function onGuildMemberAdd(member) {
     const { getGuildDb } = require('./database');
     const db = getGuildDb(member.guild.id);
     const cfg = getLogConfig(db);
-    if (!Object.values(cfg.channels).some(ch => ch.events.includes('members'))) return;
+    if (!Object.values(cfg.channels).some(ch => ch.events.includes('antinuke'))) return;
 
     await sendLog(member.guild, 'members', (color) => {
         return new EmbedBuilder()
@@ -536,7 +549,7 @@ async function onAntiNukeTrigger(guild, type, member, action, reason) {
     const cfg = getLogConfig(db);
     if (!Object.values(cfg.channels).some(ch => ch.events.includes('members'))) return;
 
-    await sendLog(guild, 'members', (color) => {
+    await sendLog(guild, 'antinuke', (color) => {
         return new EmbedBuilder()
             .setTitle('🛡️ AntiNuke Triggered')
             .setColor('#FF0000')

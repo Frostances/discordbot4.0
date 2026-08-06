@@ -101,7 +101,7 @@ const { restoreReminders }                               = require('./modules/re
 const { onThreadCreate }                                 = require('./modules/threads');
 const { handleStaffCommand }                             = require('./modules/staffSystem');
 const { handleHelp }                                     = require('./modules/help');
-const { handleModuleCommand, isModuleEnabled }           = require('./modules/moduleSystem');
+const { handleModuleCommand, isModuleEnabled, setModuleEnabled } = require('./modules/moduleSystem');
 const { handleSettingsCommand } = require('./modules/settingsCommand');
 const { handlePing, handleBotStats, handleUserInfo,
         handleServerInfo, handleAvatar }                 = require('./modules/info');
@@ -1427,8 +1427,10 @@ client.on('messageCreate', async (message) => {
 
         // ── Roleplay toggle ──
         if (command === 'roleplay') {
-            if (!isAdmin(message.member)) return message.reply('❌ Only administrators can enable roleplay.');
-            return handleModuleCommand(message, ['enable', 'roleplay']);
+            if (!isAdmin(message.member)) return message.reply('❌ Only administrators can toggle roleplay.');
+            const currentlyEnabled = isModuleEnabled(message.guild.id, 'roleplay');
+            setModuleEnabled(message.guild.id, 'roleplay', !currentlyEnabled);
+            return message.reply(`✅ Roleplay module is now **${!currentlyEnabled ? 'enabled' : 'disabled'}**.`);
         }
 
         // ── Roleplay / reaction GIFs ──

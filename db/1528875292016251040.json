@@ -760,7 +760,7 @@
       "lastCrime": null
     },
     "1278713831345881170": {
-      "xp": 13600,
+      "xp": 13935,
       "level": 6,
       "balance": 0,
       "bank": 0,
@@ -1775,16 +1775,16 @@
           "2026-08-03": 53,
           "2026-08-04": 156,
           "2026-08-05": 105,
-          "2026-08-06": 9
+          "2026-08-06": 22
         },
         "weekly": {
           "2026-07-27": 131,
-          "2026-08-03": 323
+          "2026-08-03": 336
         },
         "monthly": {
-          "2026-08": 454
+          "2026-08": 467
         },
-        "total": 454
+        "total": 467
       },
       "1408853277470097568": {
         "daily": {
@@ -2104,8 +2104,39 @@
     }
   },
   "lastSeen": {
-    "1278713831345881170": 1786021413879,
+    "1278713831345881170": 1786023798163,
     "1408853277470097568": 1786014135964,
     "1371931756692897893": 1785977130204
+  },
+  "antinuke": {
+    "enabled": true,
+    "logChannel": null,
+    "admins": [],
+    "whitelist": [],
+    "modules": {
+      "channel": {
+        "enabled": true,
+        "threshold": 1,
+        "action": "strip",
+        "command": false
+      }
+    },
+    "permWatch": {
+      "grant": [
+        "administrator",
+        "ban_members",
+        "mention_everyone",
+        "kick_members",
+        "moderate_members",
+        "manage_guild",
+        "manage_channels",
+        "manage_roles",
+        "view_audit_log",
+        "manage_webhooks",
+        "manage_expressions",
+        "manage_nicknames"
+      ],
+      "remove": []
+    }
   }
 }

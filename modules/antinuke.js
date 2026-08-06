@@ -107,8 +107,7 @@ function getModuleConfig(cfg, type) {
 // ══════════════════════════════════════════════════════════
 async function isOwnerOrAdmin(message) {
   const { isAdmin } = require('./helpers');
-  if (message.guild.ownerId === message.author.id) return true;
-  if (isAdmin(message.author.id)) return true;
+  if (isAdmin(message.member)) return true;
   const cfg = getAntinukeConfig(message.guild.id);
   if (cfg.admins?.includes(message.author.id)) return true;
   return false;
@@ -347,7 +346,7 @@ async function handleAntiNukeCommand(message, args) {
 
   // ── Enable / Disable (owner or bot owner only) ──
   if (sub === 'enable') {
-    if (message.guild.ownerId !== message.author.id && !isAdmin(message.author.id)) {
+    if (!isAdmin(message.member)) {
       return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner can enable antinuke.').setColor('#F04747')] });
     }
     cfg.enabled = true;
@@ -356,7 +355,7 @@ async function handleAntiNukeCommand(message, args) {
   }
 
   if (sub === 'disable') {
-    if (message.guild.ownerId !== message.author.id && !isAdmin(message.author.id)) {
+    if (!isAdmin(message.member)) {
       return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner can disable antinuke.').setColor('#F04747')] });
     }
     cfg.enabled = false;
@@ -366,7 +365,7 @@ async function handleAntiNukeCommand(message, args) {
 
   // ── Admin management (owner / bot owner only) ──
   if (sub === 'admin') {
-    if (message.guild.ownerId !== message.author.id && !isAdmin(message.author.id)) {
+    if (!isAdmin(message.member)) {
       return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner can manage antinuke admins.').setColor('#F04747')] });
     }
     const target = message.mentions.users.first();

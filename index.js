@@ -783,7 +783,7 @@ async function handleStealEmoji(message, args) {
 //  BOT ADMIN ROLE — server owner can delegate bot control
 // ══════════════════════════════════════════════════════════
 async function handleBotAdminCommand(message, args) {
-    if (message.guild.ownerId !== message.author.id) {
+    if (!isAdmin(message.member)) {
         return message.reply({ embeds: [mkError('Permission Denied', 'Only the **server owner** can manage the bot admin role.')] });
     }
     const db  = getGuildDb(message.guild.id);

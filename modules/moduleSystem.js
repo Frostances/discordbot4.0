@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { getGuildDb } = require('./database');
+const { isAdmin } = require('./helpers');
 const { COLORS, base } = require('../utils/embeds');
 
 // ══════════════════════════════════════════════════════════
@@ -69,8 +70,8 @@ function buildModulePanel(guildId) {
 // ══════════════════════════════════════════════════════════
 
 async function handleModuleCommand(message, args) {
-  if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-    return message.reply({ content: '❌ Only server admins can manage modules.', ephemeral: true });
+  if (!isAdmin(message.member)) {
+    return message.reply({ content: '❌ Only the server owner or bot admin can manage modules.', ephemeral: true });
   }
 
   const sub = args[0]?.toLowerCase();
@@ -113,8 +114,8 @@ async function handleModuleCommand(message, args) {
 // ══════════════════════════════════════════════════════════
 
 async function handleModuleButton(interaction) {
-  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({ content: '❌ Only admins can manage modules.', ephemeral: true });
+  if (!isAdmin(interaction.member)) {
+    return interaction.reply({ content: '❌ Only the server owner or bot admin can manage modules.', ephemeral: true });
   }
 
   const customId = interaction.customId;

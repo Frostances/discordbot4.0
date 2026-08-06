@@ -1433,16 +1433,16 @@ client.on('messageCreate', async (message) => {
             return message.reply(`✅ Roleplay module is now **${!currentlyEnabled ? 'enabled' : 'disabled'}**.`);
         }
 
-      // ── Roleplay / reaction GIFs ──
-      if (ROLEPLAY_COMMANDS.has(command)) {
-          if (!isModuleEnabled(message.guild.id, 'roleplay')) {
-              return message.reply('<:warn:1528892150698348727> The roleplay module is disabled. Use `,roleplay` to enable it.');
-          }
-          const target = message.mentions.users.first() || null;
-          // Detect a trailing URL for custom image override (any arg starting with http)
-          const customImageUrl = args.find(a => /^https?:\/\//i.test(a)) || null;
-          return handleRoleplay(message, command, target, customImageUrl);
-      }
+        // ── Roleplay / reaction GIFs ──
+        if (ROLEPLAY_COMMANDS.has(command)) {
+            if (!isModuleEnabled(message.guild.id, 'roleplay')) {
+                return message.reply('❌ The roleplay module is disabled. Use `,roleplay` to enable it.');
+            }
+            const target = message.mentions.users.first() || null;
+            // Detect a trailing URL for custom image override (any arg starting with http)
+            const customImageUrl = args.find(a => /^https?:\/\//i.test(a)) || null;
+            return handleRoleplay(message, command, target, customImageUrl);
+        }
 
         // ── Fun commands ──
         if (FUN_COMMANDS.has(command)) return handleFunCommand(message, command, args);

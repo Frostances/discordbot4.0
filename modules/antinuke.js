@@ -433,33 +433,6 @@ async function handleAntiNukeCommand(message, args) {
     return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ Antinuke logs will be sent to <#${ch.id}>.`).setColor('#43B581')] });
   }
 
-  // ── Permissions watch configuration ──
-  if (sub === 'permissions') {
-    if (!await isOwnerOrAdmin(message)) {
-      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner or antinuke admins can manage permissions.').setColor('#F04747')] });
-    }
-    const action = args[1]?.toLowerCase();
-    const permName = args[2]?.toLowerCase();
-    if (!['grant', 'remove'].includes(action)) {
-      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Usage: `,antinuke permissions grant <permission>` or `,antinuke permissions remove <permission>`').setColor('#F04747')] });
-    }
-    if (!permName || !DANGEROUS_PERMS.includes(permName)) {
-      return message.reply({ embeds: [new EmbedBuilder().setDescription(`❌ Invalid permission. Available: ${DANGEROUS_PERMS.join(', ')}`).setColor('#F04747')] });
-    }
-    cfg.permWatch = cfg.permWatch || { grant: [...DANGEROUS_PERMS], remove: [] };
-    const list = cfg.permWatch[action] || [];
-    if (list.includes(permName)) {
-      cfg.permWatch[action] = list.filter(p => p !== permName);
-      saveAntinukeConfig(message.guild.id, cfg);
-      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ Removed **${permName}** from ${action} watch list.`).setColor('#43B581')] });
-    } else {
-      list.push(permName);
-      cfg.permWatch[action] = list;
-      saveAntinukeConfig(message.guild.id, cfg);
-      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ Added **${permName}** to ${action} watch list.`).setColor('#43B581')] });
-    }
-  }
-
   // ── Permissions list / toggle ──
   if (sub === 'permissions') {
     const action = args[1]?.toLowerCase();
@@ -599,7 +572,8 @@ async function sendConfig(message) {
       `Whitelisted Members: ${whitelistedMembers}\n` +
       `Protection Modules: ${MODULES.filter(m => getModuleConfig(cfg, m).enabled).length} enabled\n` +
       `Watch Permission Grant: ${(cfg.permWatch?.grant || []).length}/${DANGEROUS_PERMS.length} perms\n` +
-      `Watch Permission Remove: ${(cfg.permWatch?.remove || []).length}/${DANGEROUS_PERMS.length} perms`,
+      `Watch Permission Remove: ${(cfg.permWatch?.remove || []).length}/${DANGEROUS_PERMS.length} perms\n` +
+      `Deny Bot Joins (botadd): ${getModuleConfig(cfg, 'botadd').enabled ? '<:checkmark:1528890895859056680>' : ''}`,
     inline: true
   });
 

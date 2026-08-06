@@ -89,7 +89,48 @@ const { handleModerationCommand,
         restoreTempBans }                                = require('./modules/moderation');
 const { restoreNukeSchedules }                           = require('./modules/nuke');
 const { handleRoleplay, ROLEPLAY_COMMANDS }              = require('./modules/roleplay');
-const { handleFunCommand, FUN_COMMANDS }                 = require('./modules/funCommands');
+const funCommands = require('./modules/funCommands');
+
+const funAliases = {
+  lyrics: ['lyric', 'lyr'],
+  duckduckgo: ['ddg', 'duck'],
+  blacktea: ['bt', 'tea'],
+  quote: ['qt'],
+  tictactoe: ['ttt', 'tic'],
+  google: ['g', 'search'],
+  giphy: ['gif', 'gify'],
+  tenor: ['ten'],
+  steal: ['emote', 'recentemote'],
+  duckduckgoimage: ['ddgimg', 'duckimage'],
+  reverseimage: ['revimg', 'reverseimg', 'ris'],
+  image: ['img', 'gis'],
+  book: ['books'],
+  manga: ['mg'],
+  anime: ['anim'],
+  character: ['char'],
+  tone: ['toxicity', 'perspective'],
+  tags: ['tag'],
+  tvshow: ['tv', 'show'],
+  game: ['games', 'rawg'],
+  movie: ['movies', 'film', 'omdb'],
+  movieexpand: ['movieinfo', 'moviedetails'],
+  ocr: ['readimage', 'readimg'],
+  ocrtr: ['ocrtranslate', 'imagetranslate'],
+  translate: ['tr', 'trans'],
+  tts: ['speak', 'say'],
+  ttschannel: ['ttsvc', 'speakvc'],
+  lego: ['legofy', 'brick'],
+  makegif: ['togif', 'gifify'],
+  transparent: ['removebg', 'nobg', 'rp'],
+  wolfram: ['wa', 'wolframalpha', 'alpha'],
+  juul: ['vape', 'pod'],
+  'juul hit': ['hitjuul', 'vapehit'],
+  'juul pass': ['passjuul', 'vapepass'],
+  'juul toggle': ['togglejuul', 'vapetoggle'],
+  'juul stats': ['juulstats', 'vapestats'],
+  'juul flavor': ['juulflavor', 'vapeflavor'],
+  'juul steal': ['stealjuul', 'vapest'],
+};
 const { handleRestrictCommand }                          = require('./modules/restrictcommand');
 const { restoreJailTimers, applyJailPermsToNewChannel } = require('./modules/jail');
 const { restoreMuteTimers }                              = require('./modules/mute');
@@ -1291,8 +1332,8 @@ client.on('messageCreate', async (message) => {
         // ── Server Prefix ──
         if (command === 'sprefix') return handleSprefixCommand(message, args);
 
-        // ── Steal Emoji ──
-        if (command === 'steal') return handleStealEmoji(message, args);
+         // ── Steal Emoji ──
+         if (command === 'stealemoji') return handleStealEmoji(message, args);
 
         // ── Booster Role ──
         if (command === 'boosterrole' || command === 'br') return handleBoosterRoleCommand(message, args);
@@ -1444,8 +1485,17 @@ client.on('messageCreate', async (message) => {
             return handleRoleplay(message, command, target, customImageUrl);
         }
 
-        // ── Fun commands ──
-        if (FUN_COMMANDS.has(command)) return handleFunCommand(message, command, args);
+         // ── Fun commands ──
+         const funCmd = funAliases[command] ? Object.keys(funAliases).find(k => funAliases[k].includes(command)) || command : command;
+         if (funCommands[funCmd]) {
+           return funCommands[funCmd](message, args);
+         }
+         // Check aliases mapping
+         for (const [cmdName, aliases] of Object.entries(funAliases)) {
+           if (cmdName === command || aliases.includes(command)) {
+             if (funCommands[cmdName]) return funCommands[cmdName](message, args);
+           }
+         }
 
          // ── Fake Permissions ──
          if (command === 'fakepermissions') return handleFakePermissionsCommand(message, args);
@@ -1670,16 +1720,84 @@ client.on('interactionCreate', async (interaction) => {
                 if (sub === 'modules') return handleConfigCommand(interaction, ['module', 'list']);
             }
 
-            // ── Fun slash commands ──
-            if (['8ball','coinflip','dice','rps','choose','quote','joke','cat','dog','meme','wyr','rate','pp','ship','tictactoe'].includes(cmd)) {
-                let slashArgs = [];
-                if (cmd === '8ball')      slashArgs = [interaction.options.getString('question')];
-                if (cmd === 'dice')       slashArgs = [interaction.options.getString('format') || '6'];
-                if (cmd === 'rps')        slashArgs = [interaction.options.getString('choice')];
-                if (cmd === 'choose')     slashArgs = [interaction.options.getString('options')];
-                if (cmd === 'rate')       slashArgs = [interaction.options.getString('thing')];
-                return handleFunCommand(interaction, cmd, slashArgs);
-            }
+             // ── Fun slash commands ──
+             const funSlashCommands = [
+               'lyrics','duckduckgo','blacktea','quote','tictactoe','google','giphy','tenor',
+               'steal','duckduckgoimage','reverseimage','image','book','manga','anime',
+               'character','tone','tags','tvshow','game','movie','movieexpand','ocr','ocrtr',
+               'translate','tts','ttschannel','lego','makegif','transparent','wolfram',
+               'juul','juul hit','juul pass','juul toggle','juul stats','juul flavor','juul steal'
+             ];
+             if (funSlashCommands.includes(cmd)) {
+               let slashArgs = [];
+               if (cmd === 'lyrics') slashArgs = [interaction.options.getString('query')];
+               if (cmd === 'duckduckgo') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'quote') slashArgs = [interaction.options.getString('text')];
+               if (cmd === 'tictactoe') {
+                 const user = interaction.options.getUser('user');
+                 slashArgs = user ? [user.toString()] : [];
+               }
+               if (cmd === 'google') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'giphy') slashArgs = [interaction.options.getString('keyword')];
+               if (cmd === 'tenor') slashArgs = [interaction.options.getString('keyword')];
+               if (cmd === 'steal') slashArgs = [interaction.options.getString('message_link')];
+               if (cmd === 'duckduckgoimage') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'reverseimage') slashArgs = [interaction.options.getString('url')];
+               if (cmd === 'image') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'book') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'manga') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'anime') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'character') slashArgs = [interaction.options.getString('search')];
+               if (cmd === 'tone') slashArgs = [interaction.options.getString('text')];
+               if (cmd === 'tags') slashArgs = [interaction.options.getString('tag_name')];
+               if (cmd === 'tvshow') slashArgs = [interaction.options.getString('title')];
+               if (cmd === 'game') slashArgs = [interaction.options.getString('title')];
+               if (cmd === 'movie') slashArgs = [interaction.options.getString('title')];
+               if (cmd === 'movieexpand') slashArgs = [interaction.options.getString('title')];
+               if (cmd === 'ocr') slashArgs = [interaction.options.getString('url')];
+               if (cmd === 'ocrtr') {
+                 slashArgs = [interaction.options.getString('url'), interaction.options.getString('to_language') || 'en'];
+               }
+               if (cmd === 'translate') {
+                 const from = interaction.options.getString('from_language') || 'auto';
+                 const to = interaction.options.getString('to_language');
+                 const text = interaction.options.getString('text');
+                 slashArgs = [from, to, text];
+               }
+               if (cmd === 'tts') {
+                 const speaker = interaction.options.getString('speaker') || 'en';
+                 const text = interaction.options.getString('text');
+                 slashArgs = [speaker, text];
+               }
+               if (cmd === 'ttschannel') {
+                 const speaker = interaction.options.getString('speaker') || 'en';
+                 const text = interaction.options.getString('text');
+                 slashArgs = [speaker, text];
+               }
+               if (cmd === 'lego') slashArgs = [interaction.options.getString('url')];
+               if (cmd === 'makegif') {
+                 slashArgs = [
+                   interaction.options.getString('url'),
+                   interaction.options.getString('quality') || '10',
+                   interaction.options.getString('fps') || '15',
+                   interaction.options.getBoolean('fast_forward') ? 'fast' : ''
+                 ];
+               }
+               if (cmd === 'transparent') slashArgs = [interaction.options.getString('url')];
+               if (cmd === 'wolfram') slashArgs = [interaction.options.getString('query')];
+               if (cmd === 'juul') slashArgs = [];
+               if (cmd === 'juul hit') slashArgs = [];
+               if (cmd === 'juul pass') {
+                 const user = interaction.options.getUser('member');
+                 slashArgs = user ? [user.toString()] : [];
+               }
+               if (cmd === 'juul toggle') slashArgs = [];
+               if (cmd === 'juul stats') slashArgs = [];
+               if (cmd === 'juul flavor') slashArgs = [interaction.options.getString('flavor')];
+               if (cmd === 'juul steal') slashArgs = [];
+
+               if (funCommands[cmd]) return funCommands[cmd](interaction, slashArgs);
+             }
 
             // ── Roleplay slash command (/rp action:hug user:@someone) ──
             if (cmd === 'rp') {

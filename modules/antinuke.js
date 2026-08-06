@@ -79,7 +79,8 @@ function getAntinukeConfig(guildId) {
     permWatch: {
       grant: [],
       remove: []
-    }
+    },
+    permWatchPunishment: 'strip'
   });
 }
 
@@ -433,7 +434,7 @@ async function handleAntiNukeCommand(message, args) {
     return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ Antinuke logs will be sent to <#${ch.id}>.`).setColor('#43B581')] });
   }
 
-  // ── Permissions list / toggle ──
+  // ── Permissions list / toggle / punishment ──
   if (sub === 'permissions') {
     const action = args[1]?.toLowerCase();
 
@@ -452,14 +453,31 @@ async function handleAntiNukeCommand(message, args) {
           { name: `Grant Watch (${grantList.length}/${DANGEROUS_PERMS.length})`, value: grantLines.join('\n'), inline: true },
           { name: `Remove Watch (${removeList.length}/${DANGEROUS_PERMS.length})`, value: removeLines.join('\n'), inline: true },
         )
-        .setFooter({ text: 'Use ,antinuke permissions grant <perm> or ,antinuke permissions remove <perm>' });
+        .addFields(
+          { name: 'Punishment', value: `**${cfg.permWatchPunishment || 'strip'}**`, inline: false }
+        )
+        .setFooter({ text: 'Use ,antinuke permissions grant <perm> | remove <perm> | punishment <ban/kick/strip>' });
 
       return message.reply({ embeds: [embed] });
     }
 
+    // Punishment mode
+    if (action === 'punishment') {
+      if (!await isOwnerOrAdmin(message)) {
+        return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner or antinuke admins can manage permissions.').setColor('#F04747')] });
+      }
+      const punishment = args[2]?.toLowerCase();
+      if (!punishment || !['ban', 'kick', 'strip'].includes(punishment)) {
+        return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Invalid punishment. Use `ban`, `kick`, or `strip`.').setColor('#F04747')] });
+      }
+      cfg.permWatchPunishment = punishment;
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ Permission watch punishment set to **${punishment}**.`).setColor('#43B581')] });
+    }
+
     // Grant / remove toggle mode
     if (!['grant', 'remove'].includes(action)) {
-      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Usage: `,antinuke permissions list` or `,antinuke permissions grant/remove <permission>`').setColor('#F04747')] });
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Usage: `,antinuke permissions list` | `grant <perm>` | `remove <perm>` | `punishment <ban/kick/strip>`').setColor('#F04747')] });
     }
 
     if (!await isOwnerOrAdmin(message)) {
@@ -573,6 +591,7 @@ async function sendConfig(message) {
       `Protection Modules: ${MODULES.filter(m => getModuleConfig(cfg, m).enabled).length} enabled\n` +
       `Watch Permission Grant: ${(cfg.permWatch?.grant || []).length}/${DANGEROUS_PERMS.length} perms\n` +
       `Watch Permission Remove: ${(cfg.permWatch?.remove || []).length}/${DANGEROUS_PERMS.length} perms\n` +
+      `Permission Punishment: ${cfg.permWatchPunishment || 'strip'}\n` +
       `Deny Bot Joins (botadd): ${getModuleConfig(cfg, 'botadd').enabled ? '<:checkmark:1528890895859056680>' : ''}`,
     inline: true
   });
@@ -740,14 +759,14 @@ async function setupAntiNukeListeners(client) {
       } catch {}
 
       // Punish immediately on first offense (no threshold)
-      await punish(guild, executorId, 'ban', `permissions (${triggeredAction} ${triggeredPerm})`, cfg.logChannel);
+      await punish(guild, executorId, cfg.permWatchPunishment || 'strip', `permissions (${triggeredAction} ${triggeredPerm})`, cfg.logChannel);
 
       // Log to general logging system
       try {
         const { onAntiNukeTrigger } = require('./logging');
         const member = await guild.members.fetch(executorId).catch(() => null);
         if (member) {
-          await onAntiNukeTrigger(guild, 'antinuke', member, 'ban', `Reverted ${triggeredAction} of ${triggeredPerm} on <@&${entry.targetId}>`);
+          await onAntiNukeTrigger(guild, 'antinuke', member, cfg.permWatchPunishment || 'strip', `Reverted ${triggeredAction} of ${triggeredPerm} on <@&${entry.targetId}>`);
         }
       } catch {}
     }

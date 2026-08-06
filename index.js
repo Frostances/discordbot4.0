@@ -83,7 +83,7 @@ const { triggerWelcome, triggerGoodbye, triggerBoost,
 const { parseEmbedCode, buildWelcomeVars, buildChannelVars } = require('./utils/embedParser');
 const { handleXpGain, handleLevelsCommand }              = require('./modules/levels');
 const { runAutoMod, handleAutoModCommand }               = require('./modules/automod');
-const { handleAntiNukeCommand, setupAntiNukeListeners }  = require('./modules/antinuke');
+const { handleAntiNukeCommand, setupAntiNukeListeners, trackCommandAction } = require('./modules/antinuke');
 const { handleMemberJoin, handleAntiRaidCommand }        = require('./modules/antiraid');
 const { handleModerationCommand,
         restoreTempBans }                                = require('./modules/moderation');
@@ -1264,8 +1264,11 @@ client.on('messageCreate', async (message) => {
         // ── VC Server Mute ──
         if (command === 'vcservermute') return handleVcServerMuteCommand(message, args);
 
-        // ── Moderation (all routed via hub) ──
-        if (MOD_COMMANDS.has(command)) return handleModerationCommand(message, command, args, client);
+         // ── AntiNuke command detection ──
+         if (MOD_COMMANDS.has(command)) {
+           await trackCommandAction(message, command).catch(() => {});
+           return handleModerationCommand(message, command, args, client);
+         }
 
         // ── Restrict Command ──
         if (command === 'restrictcommand') return handleRestrictCommand(message, args);

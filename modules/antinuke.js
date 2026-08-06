@@ -1,177 +1,672 @@
-const { EmbedBuilder, AuditLogEvent, PermissionFlagsBits } = require('discord.js');
+
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, AuditLogEvent } = require('discord.js');
 const { getGuildDb } = require('./database');
 
-// Track rapid actions per user
-const actionTracker = new Map(); // key: `guildId:userId:type` -> { count, timer }
+// ══════════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════════
+const MODULES = ['kick', 'webhook', 'emoji', 'ban', 'channel', 'role', 'vanity', 'botadd'];
+const MODULE_LABELS = {
+  kick: 'Mass Member Kick',
+  webhook: 'Webhook Creation',
+  emoji: 'Emoji Deletion',
+  ban: 'Mass Member Ban',
+  channel: 'Channel Creation/Deletion',
+  role: 'Role Deletion',
+  vanity: 'Vanity Protection',
+  botadd: 'Deny Bot Joins (botadd)'
+};
+const DANGEROUS_PERMS = [
+  'administrator', 'ban_members', 'mention_everyone', 'kick_members',
+  'moderate_members', 'manage_guild', 'manage_channels', 'manage_roles',
+  'view_audit_log', 'manage_webhooks', 'manage_expressions', 'manage_nicknames'
+];
+const PERM_BITS = {
+  administrator: PermissionFlagsBits.Administrator,
+  ban_members: PermissionFlagsBits.BanMembers,
+  mention_everyone: PermissionFlagsBits.MentionEveryone,
+  kick_members: PermissionFlagsBits.KickMembers,
+  moderate_members: PermissionFlagsBits.ModerateMembers,
+  manage_guild: PermissionFlagsBits.ManageGuild,
+  manage_channels: PermissionFlagsBits.ManageChannels,
+  manage_roles: PermissionFlagsBits.ManageRoles,
+  view_audit_log: PermissionFlagsBits.ViewAuditLog,
+  manage_webhooks: PermissionFlagsBits.ManageWebhooks,
+  manage_expressions: PermissionFlagsBits.ManageExpressions,
+  manage_nicknames: PermissionFlagsBits.ManageNicknames,
+};
 
-function track(guildId, userId, type, limit) {
-    const key = `${guildId}:${userId}:${type}`;
-    const now = Date.now();
-    if (!actionTracker.has(key)) actionTracker.set(key, { count: 0, first: now });
-    const entry = actionTracker.get(key);
-    if (now - entry.first > 10000) { entry.count = 1; entry.first = now; }
-    else entry.count++;
-    if (entry.count >= limit) {
-        actionTracker.delete(key);
-        return true; // triggered
-    }
-    return false;
+// ══════════════════════════════════════════════════════════
+// ACTION TRACKER  (10-second window)
+// ══════════════════════════════════════════════════════════
+const actionTracker = new Map(); // key: guildId:userId:type -> { count, first, punished }
+
+function getKey(guildId, userId, type) { return `${guildId}:${userId}:${type}`; }
+
+function trackAction(guildId, userId, type, limit) {
+  const key = getKey(guildId, userId, type);
+  const now = Date.now();
+  let entry = actionTracker.get(key);
+  if (!entry) {
+    entry = { count: 0, first: now, punished: false };
+    actionTracker.set(key, entry);
+  }
+  if (now - entry.first > 10000) {
+    entry.count = 1;
+    entry.first = now;
+    entry.punished = false;
+  } else {
+    entry.count++;
+  }
+  if (entry.count >= limit && !entry.punished) {
+    entry.punished = true;
+    return true;
+  }
+  return false;
 }
 
-async function handleAntiNuke(client, guild, type, executorId) {
-    const db = getGuildDb(guild.id);
-    const cfg = db.get('antinuke', {});
-    if (!cfg.enabled) return;
-
-    const modules = cfg.modules || {};
-    if (!modules[type]) return;
-
-    // Whitelist check
-    const whitelist = cfg.whitelist || [];
-    if (whitelist.includes(executorId)) return;
-
-    const limit = modules[type].limit || 3;
-    const triggered = track(guild.id, executorId, type, limit);
-    if (!triggered) return;
-
-    // Punish
-    const action = modules[type].action || 'ban';
-    const logChannelId = cfg.logChannel;
-
-    try {
-        const member = await guild.members.fetch(executorId).catch(() => null);
-        if (member) {
-            if (action === 'ban') await guild.bans.create(executorId, { reason: `AntiNuke: ${type}` }).catch(() => {});
-            else if (action === 'kick') await member.kick(`AntiNuke: ${type}`).catch(() => {});
-            else if (action === 'strip') {
-                const dangerousPerms = [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.BanMembers];
-                for (const role of member.roles.cache.values()) {
-                    if (dangerousPerms.some(p => role.permissions.has(p))) {
-                        await member.roles.remove(role).catch(() => {});
-                    }
-                }
-            }
-        }
-    } catch {}
-
-    if (logChannelId) {
-        const ch = guild.channels.cache.get(logChannelId);
-        if (ch) {
-            await ch.send({ embeds: [new EmbedBuilder()
-                .setTitle('🛡️ AntiNuke Triggered')
-                .setColor('#FF0000')
-                .addFields(
-                    { name: 'Type', value: type, inline: true },
-                    { name: 'Executor', value: `<@${executorId}> (${executorId})`, inline: true },
-                    { name: 'Action', value: action, inline: true }
-                )
-                .setTimestamp()] }).catch(() => {});
-        }
+// ══════════════════════════════════════════════════════════
+// CONFIG HELPERS
+// ══════════════════════════════════════════════════════════
+function getAntinukeConfig(guildId) {
+  const db = getGuildDb(guildId);
+  return db.get('antinuke', {
+    enabled: false,
+    logChannel: null,
+    admins: [],
+    whitelist: [],
+    modules: {},
+    permWatch: {
+      grant: [...DANGEROUS_PERMS],
+      remove: []
     }
+  });
 }
 
+function saveAntinukeConfig(guildId, cfg) {
+  const db = getGuildDb(guildId);
+  db.set('antinuke', cfg);
+}
+
+function getModuleConfig(cfg, type) {
+  const defaults = {
+    kick: { enabled: false, threshold: 3, action: 'ban', command: false },
+    webhook: { enabled: false, threshold: 3, action: 'ban', command: false },
+    emoji: { enabled: false, threshold: 3, action: 'ban', command: false },
+    ban: { enabled: false, threshold: 3, action: 'ban', command: false },
+    channel: { enabled: false, threshold: 3, action: 'ban', command: false },
+    role: { enabled: false, threshold: 3, action: 'ban', command: false },
+    vanity: { enabled: false, action: 'ban' },
+    botadd: { enabled: false }
+  };
+  return { ...defaults[type], ...(cfg.modules?.[type] || {}) };
+}
+
+// ══════════════════════════════════════════════════════════
+// PERMISSION HELPERS
+// ══════════════════════════════════════════════════════════
+async function isOwnerOrAdmin(message) {
+  const { isAdmin } = require('./helpers');
+  if (message.guild.ownerId === message.author.id) return true;
+  if (isAdmin(message.author.id)) return true;
+  const cfg = getAntinukeConfig(message.guild.id);
+  if (cfg.admins?.includes(message.author.id)) return true;
+  return false;
+}
+
+function isWhitelisted(cfg, userId, botId = null) {
+  if (cfg.whitelist?.includes(userId)) return true;
+  if (botId && cfg.whitelist?.includes(botId)) return true;
+  return false;
+}
+
+// ══════════════════════════════════════════════════════════
+// PUNISHMENT ENGINE
+// ══════════════════════════════════════════════════════════
+async function punish(guild, userId, action, type, logChannelId) {
+  let success = false;
+  let detail = '';
+  try {
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) {
+      if (action === 'ban') {
+        await guild.bans.create(userId, { reason: `AntiNuke: ${type}` }).catch(() => {});
+        success = true; detail = 'banned';
+      }
+    } else {
+      if (action === 'ban') {
+        await guild.bans.create(userId, { reason: `AntiNuke: ${type}` }).catch(() => {});
+        success = true; detail = 'banned';
+      } else if (action === 'kick') {
+        await member.kick(`AntiNuke: ${type}`).catch(() => {});
+        success = true; detail = 'kicked';
+      } else if (action === 'strip') {
+        const dangerous = [
+          PermissionFlagsBits.Administrator,
+          PermissionFlagsBits.BanMembers,
+          PermissionFlagsBits.KickMembers,
+          PermissionFlagsBits.ManageGuild,
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.ManageRoles,
+          PermissionFlagsBits.ManageWebhooks,
+          PermissionFlagsBits.MentionEveryone,
+          PermissionFlagsBits.ModerateMembers,
+        ];
+        let stripped = 0;
+        for (const role of member.roles.cache.values()) {
+          if (role.id === guild.roles.everyone.id) continue;
+          if (dangerous.some(p => role.permissions.has(p))) {
+            await member.roles.remove(role, `AntiNuke: ${type}`).catch(() => {});
+            stripped++;
+          }
+        }
+        success = stripped > 0;
+        detail = success ? `stripped ${stripped} dangerous role(s)` : 'no dangerous roles to strip';
+      }
+    }
+  } catch (err) {
+    detail = err.message;
+  }
+
+  if (logChannelId) {
+    const ch = guild.channels.cache.get(logChannelId);
+    if (ch) {
+      const embed = new EmbedBuilder()
+        .setTitle('🛡️ AntiNuke Triggered')
+        .setColor('#FF0000')
+        .addFields(
+          { name: 'Type', value: type, inline: true },
+          { name: 'Executor', value: `<@${userId}> (${userId})`, inline: true },
+          { name: 'Punishment', value: action, inline: true },
+          { name: 'Result', value: success ? `✅ ${detail}` : '❌ Failed', inline: true }
+        )
+        .setTimestamp();
+      await ch.send({ embeds: [embed] }).catch(() => {});
+    }
+  }
+
+  try {
+    const owner = await guild.fetchOwner().catch(() => null);
+    if (owner) {
+      await owner.send({
+        embeds: [new EmbedBuilder()
+          .setTitle('🛡️ AntiNuke Alert')
+          .setDescription(`**${guild.name}** — AntiNuke triggered for **${type}**.\nExecutor: <@${userId}> (${userId})\nPunishment: **${action}**\nResult: ${success ? 'Success' : 'Failed'}`)
+          .setColor('#FF0000')
+          .setTimestamp()]
+      }).catch(() => {});
+    }
+  } catch {}
+}
+
+// ══════════════════════════════════════════════════════════
+// CORE TRIGGER HANDLER
+// ══════════════════════════════════════════════════════════
+async function handleAntiNukeTrigger(client, guild, type, executorId, targetBotId = null) {
+  const cfg = getAntinukeConfig(guild.id);
+  if (!cfg.enabled) return;
+  if (!executorId || executorId === client.user.id) return;
+  if (executorId === guild.ownerId) return;
+
+  const modCfg = getModuleConfig(cfg, type);
+  if (!modCfg.enabled) return;
+  if (isWhitelisted(cfg, executorId, targetBotId)) return;
+
+  if (type === 'botadd' && targetBotId) {
+    const botMember = guild.members.cache.get(targetBotId) || await guild.members.fetch(targetBotId).catch(() => null);
+    if (botMember && botMember.user.bot) {
+      await botMember.kick('AntiNuke: botadd module').catch(() => {});
+    }
+    await punish(guild, executorId, 'ban', type, cfg.logChannel);
+    return;
+  }
+
+  if (type === 'vanity') {
+    await punish(guild, executorId, modCfg.action || 'ban', type, cfg.logChannel);
+    return;
+  }
+
+  const limit = modCfg.threshold || 3;
+  const triggered = trackAction(guild.id, executorId, type, limit);
+  if (!triggered) return;
+
+  await punish(guild, executorId, modCfg.action || 'ban', type, cfg.logChannel);
+}
+
+// ══════════════════════════════════════════════════════════
+// COMMAND DETECTION  (called from index.js before moderation cmds)
+// ══════════════════════════════════════════════════════════
+async function trackCommandAction(message, commandType) {
+  if (!message.guild) return;
+  if (message.author.id === message.guild.ownerId) return;
+  const cfg = getAntinukeConfig(message.guild.id);
+  if (!cfg.enabled) return;
+  if (isWhitelisted(cfg, message.author.id)) return;
+
+  const typeMap = {
+    ban: 'ban', kick: 'kick',
+    softban: 'ban', hardban: 'ban', tempban: 'ban',
+    mute: 'role', timeout: 'role', jail: 'role',
+    role: 'role',
+    lock: 'channel', unlock: 'channel', hide: 'channel', unhide: 'channel',
+    lockdown: 'channel', nuke: 'channel', chanrename: 'channel', slowmode: 'channel',
+    thread: 'channel'
+  };
+  const type = typeMap[commandType];
+  if (!type) return;
+
+  const modCfg = getModuleConfig(cfg, type);
+  if (!modCfg.enabled) return;
+  if (!modCfg.command) return;
+
+  const limit = modCfg.threshold || 3;
+  const triggered = trackAction(message.guild.id, message.author.id, type, limit);
+  if (!triggered) return;
+
+  await punish(message.guild, message.author.id, modCfg.action || 'ban', type, cfg.logChannel);
+}
+
+// ══════════════════════════════════════════════════════════
+// FLAG PARSER  (--threshold 3 --do ban --command on)
+// ══════════════════════════════════════════════════════════
+function parseFlags(args) {
+  const flags = {};
+  const remaining = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith('--')) {
+      const key = args[i].slice(2).toLowerCase();
+      const next = args[i + 1];
+      if (next && !next.startsWith('--')) {
+        flags[key] = next;
+        i++;
+      } else {
+        flags[key] = true;
+      }
+    } else {
+      remaining.push(args[i]);
+    }
+  }
+  return { flags, remaining };
+}
+
+// ══════════════════════════════════════════════════════════
+// LIST BUILDER
+// ══════════════════════════════════════════════════════════
+function buildListEntries(cfg, guild) {
+  const entries = [];
+  for (let i = 0; i < MODULES.length; i++) {
+    const mod = MODULES[i];
+    const m = getModuleConfig(cfg, mod);
+    if (!m.enabled) continue;
+    let line = `${i + 1} **${mod}**`;
+    if (mod !== 'vanity' && mod !== 'botadd') {
+      line += ` (do: ${m.action}, threshold: ${m.threshold})`;
+      if (mod !== 'channel' && mod !== 'emoji' && mod !== 'webhook') {
+        line += ` [cmd: ${m.command ? 'on' : 'off'}]`;
+      }
+    } else if (mod === 'vanity') {
+      line += ` (do: ${m.action}, threshold: N/A)`;
+    }
+    entries.push(line);
+  }
+  for (const id of (cfg.whitelist || [])) {
+    const member = guild.members.cache.get(id);
+    const user = member?.user || guild.client.users.cache.get(id);
+    const name = user ? `${user.username}${user.discriminator && user.discriminator !== '0' ? `#${user.discriminator}` : ''}` : 'Unknown';
+    const isBot = user?.bot || false;
+    entries.push(`${entries.length + 1} ${name} whitelisted ( ${id} ) [ ${isBot ? 'BOT' : 'MEMBER'} ]`);
+  }
+  return entries;
+}
+
+// ══════════════════════════════════════════════════════════
+// COMMAND HANDLER
+// ══════════════════════════════════════════════════════════
 async function handleAntiNukeCommand(message, args) {
-    const { isAdmin } = require('./helpers');
-    if (!isAdmin(message.author.id) && !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-        return message.reply('❌ Only administrators can configure AntiNuke.');
+  const { isAdmin } = require('./helpers');
+  const cfg = getAntinukeConfig(message.guild.id);
+  const sub = args[0]?.toLowerCase();
+
+  // ── No sub / list ──
+  if (!sub || sub === 'list') {
+    return sendList(message);
+  }
+
+  // ── Config ──
+  if (sub === 'config') {
+    if (!await isOwnerOrAdmin(message)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner or antinuke admins can view the configuration.').setColor('#F04747')] });
+    }
+    return sendConfig(message);
+  }
+
+  // ── Admins ──
+  if (sub === 'admins') {
+    return sendAdminsList(message);
+  }
+
+  // ── Enable / Disable (owner or bot owner only) ──
+  if (sub === 'enable') {
+    if (message.guild.ownerId !== message.author.id && !isAdmin(message.author.id)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner can enable antinuke.').setColor('#F04747')] });
+    }
+    cfg.enabled = true;
+    saveAntinukeConfig(message.guild.id, cfg);
+    return message.reply({ embeds: [new EmbedBuilder().setDescription('✅ Antinuke is now **enabled** in this server.').setColor('#43B581')] });
+  }
+
+  if (sub === 'disable') {
+    if (message.guild.ownerId !== message.author.id && !isAdmin(message.author.id)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner can disable antinuke.').setColor('#F04747')] });
+    }
+    cfg.enabled = false;
+    saveAntinukeConfig(message.guild.id, cfg);
+    return message.reply({ embeds: [new EmbedBuilder().setDescription('🔴 Antinuke is now **disabled** in this server.').setColor('#F04747')] });
+  }
+
+  // ── Admin management (owner / bot owner only) ──
+  if (sub === 'admin') {
+    if (message.guild.ownerId !== message.author.id && !isAdmin(message.author.id)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner can manage antinuke admins.').setColor('#F04747')] });
+    }
+    const target = message.mentions.users.first();
+    if (!target) return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Mention a user. Usage: `,antinuke admin @user`').setColor('#F04747')] });
+    cfg.admins = cfg.admins || [];
+    if (cfg.admins.includes(target.id)) {
+      cfg.admins = cfg.admins.filter(id => id !== target.id);
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ <@${target.id}> is no longer an **antinuke admin** and can no longer edit antinuke settings.`).setColor('#43B581')] });
+    } else {
+      cfg.admins.push(target.id);
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ <@${target.id}> is now an **antinuke admin** and can edit antinuke settings.`).setColor('#43B581')] });
+    }
+  }
+
+  // ── Whitelist (owner or antinuke admin) ──
+  if (sub === 'whitelist') {
+    if (!await isOwnerOrAdmin(message)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner or antinuke admins can manage the whitelist.').setColor('#F04747')] });
+    }
+    const target = message.mentions.users.first();
+    if (!target) return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Mention a user. Usage: `,antinuke whitelist @user`').setColor('#F04747')] });
+    cfg.whitelist = cfg.whitelist || [];
+    if (cfg.whitelist.includes(target.id)) {
+      cfg.whitelist = cfg.whitelist.filter(id => id !== target.id);
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ <@${target.id}> is no longer whitelisted.`).setColor('#43B581')] });
+    } else {
+      cfg.whitelist.push(target.id);
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ <@${target.id}> is now whitelisted and will not trigger antinuke.`).setColor('#43B581')] });
+    }
+  }
+
+  // ── Log channel ──
+  if (sub === 'log') {
+    if (!await isOwnerOrAdmin(message)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner or antinuke admins can set the log channel.').setColor('#F04747')] });
+    }
+    const ch = message.mentions.channels.first();
+    if (!ch) return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Mention a channel. Usage: `,antinuke log #channel`').setColor('#F04747')] });
+    cfg.logChannel = ch.id;
+    saveAntinukeConfig(message.guild.id, cfg);
+    return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ Antinuke logs will be sent to <#${ch.id}>.`).setColor('#43B581')] });
+  }
+
+  // ── Module configuration ──
+  if (MODULES.includes(sub)) {
+    if (!await isOwnerOrAdmin(message)) {
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Only the server owner or antinuke admins can configure modules.').setColor('#F04747')] });
+    }
+    const { flags, remaining } = parseFlags(args.slice(1));
+    const status = remaining[0]?.toLowerCase();
+
+    if (status === 'off') {
+      cfg.modules = cfg.modules || {};
+      cfg.modules[sub] = { ...(cfg.modules[sub] || {}), enabled: false };
+      saveAntinukeConfig(message.guild.id, cfg);
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`🔴 Disabled **${sub}** antinuke module.`).setColor('#F04747')] });
     }
 
-    const db = getGuildDb(message.guild.id);
-    const cfg = db.get('antinuke', { enabled: false, modules: {}, whitelist: [] });
-    const sub = args[0];
+    if (status === 'on') {
+      cfg.modules = cfg.modules || {};
+      const existing = cfg.modules[sub] || {};
+      const wasEnabled = existing.enabled;
+      const threshold = parseInt(flags.threshold) || existing.threshold || 3;
+      const action = flags.do || existing.action || 'ban';
+      const command = flags.command === 'on' ? true : flags.command === 'off' ? false : (existing.command || false);
 
-    if (!sub || sub === 'list') {
-        const mods = cfg.modules || {};
-        const lines = Object.entries(mods).map(([k, v]) => `**${k}**: limit=${v.limit}, action=${v.action}`);
-        return message.channel.send({ embeds: [new EmbedBuilder()
-            .setTitle('🛡️ AntiNuke Status')
-            .setColor('#FF4444')
-            .addFields(
-                { name: 'Enabled', value: cfg.enabled ? '✅' : '❌', inline: true },
-                { name: 'Whitelist', value: (cfg.whitelist || []).map(id => `<@${id}>`).join(', ') || 'None', inline: true },
-                { name: 'Modules', value: lines.join('\n') || 'None configured' }
-            )
-            .setFooter({ text: '.antinuke enable | .antinuke <module> <limit> <action>' })] });
+      cfg.modules[sub] = {
+        enabled: true,
+        threshold,
+        action,
+        ...(sub !== 'vanity' && sub !== 'botadd' ? { command } : {})
+      };
+      saveAntinukeConfig(message.guild.id, cfg);
+
+      let desc = '';
+      if (sub === 'vanity') {
+        desc = `Enabled **vanity** antinuke module. Punishment is set to **${action}**.`;
+      } else if (sub === 'botadd') {
+        desc = `Enabled **botadd** antinuke module.`;
+      } else if (sub === 'channel' || sub === 'emoji' || sub === 'webhook') {
+        const verb = wasEnabled ? 'Updated' : 'Enabled';
+        desc = `${verb} **${sub}** antinuke module. Punishment is set to **${action}** and threshold is set to **${threshold}**.`;
+      } else {
+        const verb = wasEnabled ? 'Updated' : 'Enabled';
+        desc = `${verb} **${sub}** antinuke module. Punishment is set to **${action}**, threshold is set to **${threshold}** and command detection is **${command ? 'on' : 'off'}**.`;
+      }
+      return message.reply({ embeds: [new EmbedBuilder().setDescription(`✅ ${desc}`).setColor('#43B581')] });
     }
 
-    if (sub === 'enable') { cfg.enabled = true; db.set('antinuke', cfg); return message.reply('✅ AntiNuke **enabled**.'); }
-    if (sub === 'disable') { cfg.enabled = false; db.set('antinuke', cfg); return message.reply('🔴 AntiNuke **disabled**.'); }
+    return message.reply({ embeds: [new EmbedBuilder().setDescription(`❌ Usage: \`,antinuke ${sub} on\` or \`,antinuke ${sub} off\``).setColor('#F04747')] });
+  }
 
-    if (sub === 'whitelist') {
-        const action = args[1];
-        const target = message.mentions.users.first();
-        if (!target) return message.reply('❌ Mention a user.');
-        cfg.whitelist = cfg.whitelist || [];
-        if (action === 'add') {
-            if (!cfg.whitelist.includes(target.id)) cfg.whitelist.push(target.id);
-            db.set('antinuke', cfg);
-            return message.reply(`✅ <@${target.id}> whitelisted from AntiNuke.`);
-        }
-        if (action === 'remove') {
-            cfg.whitelist = cfg.whitelist.filter(id => id !== target.id);
-            db.set('antinuke', cfg);
-            return message.reply(`✅ <@${target.id}> removed from whitelist.`);
-        }
-        if (action === 'view') {
-            const list = cfg.whitelist.map(id => `<@${id}>`).join('\n') || 'Empty';
-            return message.channel.send({ embeds: [new EmbedBuilder().setTitle('🛡️ AntiNuke Whitelist').setDescription(list).setColor('#5865F2')] });
-        }
-    }
-
-    if (sub === 'config') {
-        const logCh = message.mentions.channels.first();
-        if (logCh) { cfg.logChannel = logCh.id; db.set('antinuke', cfg); return message.reply(`✅ AntiNuke logs → <#${logCh.id}>.`); }
-        return message.reply('❌ Mention a log channel.');
-    }
-
-    // Module config: .antinuke channel 3 ban
-    const modules = ['channel', 'role', 'ban', 'kick', 'webhook', 'botadd', 'emoji', 'vanity', 'permissions'];
-    if (modules.includes(sub)) {
-        const limit = parseInt(args[1]) || 3;
-        const action = args[2] || 'ban';
-        cfg.modules = cfg.modules || {};
-        cfg.modules[sub] = { limit, action };
-        db.set('antinuke', cfg);
-        return message.reply(`✅ AntiNuke **${sub}**: limit=${limit}, action=${action}.`);
-    }
-
-    if (sub === 'admin') {
-        const target = message.mentions.users.first();
-        if (!target) return message.reply('❌ Mention a user.');
-        cfg.whitelist = cfg.whitelist || [];
-        if (!cfg.whitelist.includes(target.id)) cfg.whitelist.push(target.id);
-        db.set('antinuke', cfg);
-        return message.reply(`✅ <@${target.id}> added as AntiNuke admin (whitelisted).`);
-    }
-
-    return message.reply(`❌ Unknown subcommand. Modules: ${modules.join(', ')}`);
+  return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Unknown subcommand. Use `,antinuke list` to see available options.').setColor('#F04747')] });
 }
 
-// Attach audit log listeners
+// ══════════════════════════════════════════════════════════
+// CONFIG EMBED
+// ══════════════════════════════════════════════════════════
+async function sendConfig(message) {
+  const cfg = getAntinukeConfig(message.guild.id);
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+    .setTitle('Settings')
+    .setDescription(`Antinuke is **${cfg.enabled ? 'enabled' : 'disabled'}** in this server`)
+    .setColor('#2F3136');
+
+  const moduleLines = [];
+  for (const mod of MODULES) {
+    const m = getModuleConfig(cfg, mod);
+    const label = MODULE_LABELS[mod];
+    moduleLines.push(`${label}: ${m.enabled ? '✅' : ''}`);
+  }
+  embed.addFields({ name: 'Modules', value: moduleLines.join('\n'), inline: true });
+
+  const whitelistedBots = (cfg.whitelist || []).filter(id => {
+    const m = message.guild.members.cache.get(id);
+    return m?.user?.bot;
+  }).length;
+  const whitelistedMembers = (cfg.whitelist || []).length - whitelistedBots;
+
+  embed.addFields({
+    name: 'General',
+    value:
+      `Super Admins: ${(cfg.admins || []).length}\n` +
+      `Whitelisted Bots: ${whitelistedBots}\n` +
+      `Whitelisted Members: ${whitelistedMembers}\n` +
+      `Protection Modules: ${MODULES.filter(m => getModuleConfig(cfg, m).enabled).length} enabled\n` +
+      `Watch Permission Grant: ${(cfg.permWatch?.grant || []).length}/${DANGEROUS_PERMS.length} perms\n` +
+      `Watch Permission Remove: ${(cfg.permWatch?.remove || []).length}/${DANGEROUS_PERMS.length} perms\n` +
+      `Deny Bot Joins (botadd): ${getModuleConfig(cfg, 'botadd').enabled ? '✅' : ''}`,
+    inline: true
+  });
+
+  await message.channel.send({ embeds: [embed] });
+}
+
+// ══════════════════════════════════════════════════════════
+// LIST EMBED (paginated)
+// ══════════════════════════════════════════════════════════
+async function sendList(message) {
+  const cfg = getAntinukeConfig(message.guild.id);
+  let entries = buildListEntries(cfg, message.guild);
+  const perPage = 10;
+  let totalPages = Math.max(1, Math.ceil(entries.length / perPage));
+  let currentPage = 1;
+
+  async function render(pageNum) {
+    currentPage = Math.min(Math.max(pageNum, 1), totalPages);
+    const start = (currentPage - 1) * perPage;
+    const pageEntries = entries.slice(start, start + perPage);
+    const embed = new EmbedBuilder()
+      .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+      .setTitle('Antinuke modules & whitelist')
+      .setDescription(pageEntries.join('\n') || 'No modules enabled and no whitelisted users.')
+      .setColor('#2F3136')
+      .setFooter({ text: `Page ${currentPage}/${totalPages} (${entries.length} entries)` });
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('an_list_prev').setEmoji('◀').setStyle(ButtonStyle.Primary).setDisabled(currentPage <= 1),
+      new ButtonBuilder().setCustomId('an_list_next').setEmoji('▶').setStyle(ButtonStyle.Primary).setDisabled(currentPage >= totalPages),
+      new ButtonBuilder().setCustomId('an_list_sort').setEmoji('↕️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('an_list_close').setEmoji('✖').setStyle(ButtonStyle.Danger)
+    );
+    return { embed, row };
+  }
+
+  const { embed, row } = await render(1);
+  const msg = await message.channel.send({ embeds: [embed], components: [row] });
+
+  const collector = msg.createMessageComponentCollector({ time: 120000 });
+  collector.on('collect', async (i) => {
+    if (i.user.id !== message.author.id) return i.reply({ content: '❌ This is not your menu.', ephemeral: true });
+    if (i.customId === 'an_list_close') {
+      await msg.delete().catch(() => {});
+      return collector.stop();
+    }
+    if (i.customId === 'an_list_sort') {
+      entries.reverse();
+      totalPages = Math.max(1, Math.ceil(entries.length / perPage));
+    }
+    let newPage = currentPage;
+    if (i.customId === 'an_list_prev') newPage = currentPage - 1;
+    if (i.customId === 'an_list_next') newPage = currentPage + 1;
+    const { embed: newEmbed, row: newRow } = await render(newPage);
+    await i.update({ embeds: [newEmbed], components: [newRow] });
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// ADMINS LIST EMBED
+// ══════════════════════════════════════════════════════════
+async function sendAdminsList(message) {
+  const cfg = getAntinukeConfig(message.guild.id);
+  const admins = cfg.admins || [];
+  const lines = [];
+  for (let i = 0; i < admins.length; i++) {
+    lines.push(`${i + 1} <@${admins[i]}>`);
+  }
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+    .setTitle('Antinuke admins')
+    .setDescription(lines.join('\n') || 'No antinuke admins configured.')
+    .setColor('#2F3136')
+    .setFooter({ text: `Page 1/1 (${admins.length} entries)` });
+
+  await message.channel.send({ embeds: [embed] });
+}
+
+// ══════════════════════════════════════════════════════════
+// AUDIT LOG LISTENERS
+// ══════════════════════════════════════════════════════════
 async function setupAntiNukeListeners(client) {
-    client.on('guildAuditLogEntryCreate', async (entry, guild) => {
-        if (!guild) return;
-        const executorId = entry.executorId;
-        if (!executorId) return;
+  client.on('guildAuditLogEntryCreate', async (entry, guild) => {
+    if (!guild) return;
+    const executorId = entry.executorId;
+    if (!executorId) return;
 
-        const typeMap = {
-            [AuditLogEvent.ChannelCreate]: 'channel',
-            [AuditLogEvent.ChannelDelete]: 'channel',
-            [AuditLogEvent.RoleCreate]: 'role',
-            [AuditLogEvent.RoleDelete]: 'role',
-            [AuditLogEvent.MemberBanAdd]: 'ban',
-            [AuditLogEvent.MemberKick]: 'kick',
-            [AuditLogEvent.WebhookCreate]: 'webhook',
-            [AuditLogEvent.BotAdd]: 'botadd',
-            [AuditLogEvent.EmojiCreate]: 'emoji',
-            [AuditLogEvent.EmojiDelete]: 'emoji',
-            [AuditLogEvent.GuildUpdate]: 'vanity',
-            [AuditLogEvent.RoleUpdate]: 'permissions',
-        };
+    // Bot add detection
+    if (entry.action === AuditLogEvent.BotAdd) {
+      const targetId = entry.targetId;
+      await handleAntiNukeTrigger(client, guild, 'botadd', executorId, targetId);
+      return;
+    }
 
-        const type = typeMap[entry.action];
-        if (type) await handleAntiNuke(client, guild, type, executorId);
-    });
+    // Vanity URL change
+    if (entry.action === AuditLogEvent.GuildUpdate) {
+      const changes = entry.changes || [];
+      const vanityChange = changes.find(c => c.key === 'vanity_url_code');
+      if (vanityChange) {
+        await handleAntiNukeTrigger(client, guild, 'vanity', executorId);
+      }
+      return;
+    }
+
+    const typeMap = {
+      [AuditLogEvent.ChannelCreate]: 'channel',
+      [AuditLogEvent.ChannelDelete]: 'channel',
+      [AuditLogEvent.RoleCreate]: 'role',
+      [AuditLogEvent.RoleDelete]: 'role',
+      [AuditLogEvent.MemberBanAdd]: 'ban',
+      [AuditLogEvent.MemberKick]: 'kick',
+      [AuditLogEvent.WebhookCreate]: 'webhook',
+      [AuditLogEvent.EmojiCreate]: 'emoji',
+      [AuditLogEvent.EmojiDelete]: 'emoji',
+    };
+
+    const type = typeMap[entry.action];
+    if (type) await handleAntiNukeTrigger(client, guild, type, executorId);
+  });
+
+  // Permission grant/remove watch
+  client.on('guildAuditLogEntryCreate', async (entry, guild) => {
+    if (!guild) return;
+    const executorId = entry.executorId;
+    if (!executorId || executorId === client.user.id || executorId === guild.ownerId) return;
+    if (entry.action !== AuditLogEvent.RoleUpdate) return;
+
+    const cfg = getAntinukeConfig(guild.id);
+    if (!cfg.enabled) return;
+    if (isWhitelisted(cfg, executorId)) return;
+
+    const changes = entry.changes || [];
+    const permChange = changes.find(c => c.key === 'permissions');
+    if (!permChange) return;
+
+    const oldPerms = BigInt(permChange.old || 0);
+    const newPerms = BigInt(permChange.new || 0);
+    const added = newPerms & ~oldPerms;
+    const removed = oldPerms & ~newPerms;
+
+    const grantWatch = cfg.permWatch?.grant || [];
+    const removeWatch = cfg.permWatch?.remove || [];
+
+    let triggered = false;
+    for (const permName of grantWatch) {
+      const bit = PERM_BITS[permName];
+      if (bit && (added & bit) === bit) { triggered = true; break; }
+    }
+    if (!triggered) {
+      for (const permName of removeWatch) {
+        const bit = PERM_BITS[permName];
+        if (bit && (removed & bit) === bit) { triggered = true; break; }
+      }
+    }
+
+    if (triggered) {
+      const limit = 3;
+      const didTrigger = trackAction(guild.id, executorId, 'permissions', limit);
+      if (didTrigger) {
+        await punish(guild, executorId, 'ban', 'permissions', cfg.logChannel);
+      }
+    }
+  });
 }
 
-module.exports = { handleAntiNukeCommand, setupAntiNukeListeners };
+module.exports = {
+  handleAntiNukeCommand,
+  setupAntiNukeListeners,
+  trackCommandAction
+};

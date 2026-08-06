@@ -44,7 +44,10 @@ const MODULE_ORDER = [
 function isModuleEnabled(guildId, moduleName) {
   const db = getGuildDb(guildId);
   const mods = db.get('modules', {});
-  return mods[moduleName] !== false; // default = enabled
+  if (moduleName === 'roleplay') {
+    return mods[moduleName] === true; // roleplay defaults to DISABLED
+  }
+  return mods[moduleName] !== false; // default = enabled for everything else
 }
 
 function setModuleEnabled(guildId, moduleName, enabled) {
@@ -101,7 +104,7 @@ async function handleModuleCommand(message, args) {
       { name: 'Disable', value: '`.module disable <name>`', inline: true },
       { name: 'All', value: '`.module enable all` / `.module disable all`', inline: true },
     )
-    .setFooter({ text: 'Modules are enabled by default. Disabling a module prevents its commands and background logic from running.' });
+    .setFooter({ text: 'Roleplay is disabled by default. Use ,rp to toggle it on.' });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('module_enable_all').setLabel('Enable All').setStyle(ButtonStyle.Success),

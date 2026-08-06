@@ -129,24 +129,30 @@ async function handleSeen(message, args) {
 // ══════════════════════════════════════════════════════════
 async function handleMembercount(message) {
   const guild = message.guild;
+
   await guild.members.fetch();
+
   const total = guild.memberCount;
   const bots = guild.members.cache.filter(m => m.user.bot).size;
   const humans = total - bots;
 
+  const embed = new EmbedBuilder()
+    .setColor(0x2B2D31) // Same dark gray as the reference
+    .setAuthor({
+      name: guild.name,
+      iconURL: guild.iconURL({ dynamic: true, size: 128 }) ?? undefined,
+    })
+    .setTitle(`Members in ${guild.name}`)
+    .setDescription(
+      [
+        `> Total Members: \`${total.toLocaleString()}\``,
+        `> Humans: \`${humans.toLocaleString()}\``,
+        `> Bots: \`${bots.toLocaleString()}\``,
+      ].join("\n")
+    );
+
   return message.reply({
-    embeds: [new EmbedBuilder()
-      .setTitle('👥 Member Count')
-      .setColor(COLORS.primary)
-      .setThumbnail(guild.iconURL({ size: 256 }))
-      .addFields(
-        { name: 'Total', value: total.toLocaleString(), inline: true },
-        { name: 'Humans', value: humans.toLocaleString(), inline: true },
-        { name: 'Bots', value: bots.toLocaleString(), inline: true },
-      )
-      .setFooter({ text: guild.name })
-      .setTimestamp()
-    ]
+    embeds: [embed],
   });
 }
 

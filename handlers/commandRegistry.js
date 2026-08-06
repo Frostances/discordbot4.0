@@ -466,10 +466,55 @@ const CMDS = [
    { name:'invert', aliases:[], category:'info', staffOnly:false,
    description:'Invert the colors of an image.',
    usage:'.invert [url]', examples:['.invert', '.invert https://i.imgur.com/x.png'] },
-   { name:'emoji', aliases:['emojis'], category:'info', staffOnly:false,
+  { name:'emoji', aliases:['emojis'], category:'info', staffOnly:false,
    description:'List, add, remove, rename, stats, or bulk-manage server emojis.',
-   usage:'.emoji [action]', examples:['.emoji', '.emoji add :emoji: name', '.emoji stats'],
-   subcommands:['list', 'rename <emoji> <name>', 'add <emoji> <name>', 'stats', 'removemany <emoji>...', 'removeduplicates', 'remove <emoji>', 'information <msg-link>', 'addmany <emoji>...'] },
+   usage:',emoji [action]', examples:[',emoji', ',emoji add :emoji: name', ',emoji stats'],
+   subcommands:['list', 'rename ', 'add ', 'stats', 'removemany ...', 'removeduplicates', 'remove ', 'information ', 'addmany ...'] },
+
+  { name:'birthday', aliases:[], category:'info', staffOnly:false,
+   description:'View or manage birthdays. Subcommands: set, list, unlock, lock, role, channel, celebrate, config',
+   usage:',birthday [subcommand]', examples:[',birthday', ',birthday set 01-15', ',birthday list'],
+   permissions:[], subcommands:['set <date>', 'list', 'unlock', 'lock', 'role <role>', 'channel <channel>', 'celebrate <role>', 'celebrate list', 'config'] },
+
+  { name:'timezone', aliases:[], category:'info', staffOnly:false,
+   description:'View or set timezones. Subcommands: set, list',
+   usage:',timezone [subcommand]', examples:[',timezone', ',timezone set New York', ',timezone list'],
+   permissions:[], subcommands:['set <location>', 'list'] },
+
+  { name:'inviteinfo', aliases:['invite'], category:'info', staffOnly:false,
+   description:'View basic invite code information.',
+   usage:',inviteinfo <code>', examples:[',inviteinfo abc123', ',inviteinfo https://discord.gg/abc123'],
+   permissions:[], subcommands:[] },
+
+  { name:'boosters', aliases:[], category:'info', staffOnly:false,
+   description:'View recent server boosters or lost boosters.',
+   usage:',boosters [lost]', examples:[',boosters', ',boosters lost'],
+   permissions:[], subcommands:['lost'] },
+
+  { name:'roles', aliases:[], category:'info', staffOnly:false,
+   description:'View all roles in the server.',
+   usage:',roles', examples:[',roles'],
+   permissions:[], subcommands:[] },
+
+  { name:'emotes', aliases:['emojis'], category:'info', staffOnly:false,
+   description:'View all emotes in the server.',
+   usage:',emotes', examples:[',emotes'],
+   permissions:[], subcommands:[] },
+
+  { name:'hex', aliases:[], category:'info', staffOnly:false,
+   description:'Grab the most dominant color from an image.',
+   usage:',hex [url|attachment|member]', examples:[',hex', ',hex @user'],
+   permissions:[], subcommands:[] },
+
+  { name:'bots', aliases:[], category:'info', staffOnly:false,
+   description:'View all bots in the server.',
+   usage:',bots', examples:[',bots'],
+   permissions:[], subcommands:[] },
+
+  { name:'highlight', aliases:[], category:'info', staffOnly:false,
+   description:'Set notifications for when a keyword is said. Subcommands: add, remove, list, reset, ignore',
+   usage:',highlight [subcommand]', examples:[',highlight add hello', ',highlight list', ',highlight ignore @user'],
+   permissions:[], subcommands:['add <keyword>', 'remove <keyword>', 'list', 'reset', 'ignore <target>', 'ignore list'] },
 
  // ── FUN ──
  { name:'guessword', aliases:['gw'], category:'fun',

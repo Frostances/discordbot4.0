@@ -34,6 +34,20 @@ const {
   handleEmoji,
 } = require('./modules/information');
 
+const {
+ handleBirthday,
+ handleTimezone,
+ handleInviteinfo,
+ handleBoosters,
+ handleBoostersLost,
+ handleRolesList,
+ handleEmotesList,
+ handleHex,
+ handleBotsList,
+ handleHighlight,
+ checkHighlights,
+} = require('./modules/infoExtras');
+
 
 // ══════════════════════════════════════════════════════════
 //  CORE UTILITIES
@@ -1125,9 +1139,12 @@ client.on('messageCreate', async (message) => {
        }
      }
 
-     // ── Prefix check ──
-     const prefix = db.get('settings', {}).prefix || ',';
-    if (!message.content.startsWith(prefix)) return;
+      // ── Highlight system ──
+      await checkHighlights(message).catch(() => {});
+
+      // ── Prefix check ──
+      const prefix = db.get('settings', {}).prefix || ',';
+      if (!message.content.startsWith(prefix)) return;
 
     const rawArgs = message.content.slice(prefix.length).trim().split(/ +/);
     const rawCmd  = rawArgs.shift().toLowerCase();
@@ -1478,9 +1495,25 @@ client.on('messageCreate', async (message) => {
         if (command === 'rotate') return handleRotate(message, args);
         if (command === 'compress') return handleCompress(message, args);
         if (command === 'invert') return handleInvert(message, args);
-        if (command === 'emoji') return handleEmoji(message, args);
+         if (command === 'emoji') return handleEmoji(message, args);
 
-     // ── Reaction System ──
+         // ══════════════════════════════════════════════════════════
+         // INFORMATION EXTRAS (from modules/infoExtras.js)
+         // ══════════════════════════════════════════════════════════
+         if (command === 'birthday') return handleBirthday(message, args);
+         if (command === 'timezone') return handleTimezone(message, args);
+         if (command === 'inviteinfo') return handleInviteinfo(message, args);
+         if (command === 'boosters') {
+           if (args[0]?.toLowerCase() === 'lost') return handleBoostersLost(message, args);
+           return handleBoosters(message, args);
+         }
+         if (command === 'roles') return handleRolesList(message, args);
+         if (command === 'emotes') return handleEmotesList(message, args);
+         if (command === 'hex') return handleHex(message, args);
+         if (command === 'bots') return handleBotsList(message, args);
+         if (command === 'highlight') return handleHighlight(message, args);
+
+         // ── Reaction System ──
      if (command === 'reaction' || command === 'previousreact' || command === 'noselfreact') return handleReaction(message, command, args);
 
          // ── Filter System ──
@@ -1757,7 +1790,15 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const wasBoosting = !!oldMember.premiumSince;
     const isBoosting = !!newMember.premiumSince;
     if (!wasBoosting && isBoosting) await triggerBoost(newMember).catch(() => {});
-    if (wasBoosting && !isBoosting) await handleBoostRemoved(newMember).catch(() => {});
+      if (wasBoosting && !isBoosting) {
+        await handleBoostRemoved(newMember).catch(() => {});
+        // Track lost booster
+        const db = getGuildDb(newMember.guild.id);
+        const lost = db.get('lostBoosters', []);
+        lost.push({ userId: newMember.id, tag: newMember.user.tag, timestamp: Date.now() });
+        if (lost.length > 100) lost.shift();
+        db.set('lostBoosters', lost);
+      }
 });
 
 // ══════════════════════════════════════════════════════════

@@ -179,49 +179,156 @@ function buildSlashCommands() {
             .addSubcommand(s => s.setName('view').setDescription('View all current settings'))
             .addSubcommand(s => s.setName('modules').setDescription('View module status')),
 
-        // ── Fun ──
+        // ══════════════════════════════════════════════════════════
+        // ── Fun (50 commands) ──
+        // ══════════════════════════════════════════════════════════
         new SlashCommandBuilder()
-            .setName('8ball').setDescription('Ask the magic 8 ball a question')
-            .addStringOption(o => o.setName('question').setDescription('Your yes/no question').setRequired(true)),
-
-        new SlashCommandBuilder().setName('coinflip').setDescription('Flip a coin'),
-
-        new SlashCommandBuilder()
-            .setName('dice').setDescription('Roll a dice')
-            .addStringOption(o => o.setName('format').setDescription('Sides or NdN format (e.g. 20 or 2d6)').setRequired(false)),
+            .setName('lyrics').setDescription('Get lyrics for a song')
+            .addStringOption(o => o.setName('query').setDescription('Song name or artist - song').setRequired(true)),
 
         new SlashCommandBuilder()
-            .setName('rps').setDescription('Rock, paper, scissors vs the bot')
-            .addStringOption(o => o.setName('choice').setDescription('Your choice').setRequired(true)
-                .addChoices({ name: 'Rock 🪨', value: 'rock' }, { name: 'Paper 📄', value: 'paper' }, { name: 'Scissors ✂️', value: 'scissors' })),
+            .setName('duckduckgo').setDescription('Search DuckDuckGo')
+            .addStringOption(o => o.setName('search').setDescription('Search query').setRequired(true)),
+
+        new SlashCommandBuilder().setName('blacktea').setDescription('Play the 3-letter word guessing game'),
 
         new SlashCommandBuilder()
-            .setName('choose').setDescription('Choose between options')
-            .addStringOption(o => o.setName('options').setDescription('Comma-separated options (e.g. pizza, burger, tacos)').setRequired(true)),
-
-        new SlashCommandBuilder().setName('quote').setDescription('Get a random inspirational quote'),
-        new SlashCommandBuilder().setName('joke').setDescription('Get a random joke'),
-        new SlashCommandBuilder().setName('cat').setDescription('Get a random cat image'),
-        new SlashCommandBuilder().setName('dog').setDescription('Get a random dog image'),
-        new SlashCommandBuilder().setName('meme').setDescription('Get a random meme'),
-        new SlashCommandBuilder().setName('wyr').setDescription('Get a random "Would you rather" prompt'),
+            .setName('quote').setDescription('Quote a message by link or ID')
+            .addStringOption(o => o.setName('text').setDescription('Message link or ID').setRequired(false)),
 
         new SlashCommandBuilder()
-            .setName('rate').setDescription('Rate something out of 10')
-            .addStringOption(o => o.setName('thing').setDescription('What to rate').setRequired(true)),
+            .setName('tictactoe').setDescription('Play TicTacToe vs bot or a user')
+            .addUserOption(o => o.setName('user').setDescription('Opponent (leave blank for bot)').setRequired(false)),
 
         new SlashCommandBuilder()
-            .setName('pp').setDescription("Check someone's pp size (silly)")
-            .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(false)),
+            .setName('google').setDescription('Search Google')
+            .addStringOption(o => o.setName('search').setDescription('Search query').setRequired(true)),
 
         new SlashCommandBuilder()
-            .setName('ship').setDescription('Ship two users')
-            .addUserOption(o => o.setName('user1').setDescription('First user').setRequired(true))
-            .addUserOption(o => o.setName('user2').setDescription('Second user').setRequired(true)),
+            .setName('giphy').setDescription('Search Giphy for GIFs')
+            .addStringOption(o => o.setName('keyword').setDescription('Search keyword').setRequired(true)),
 
         new SlashCommandBuilder()
-            .setName('tictactoe').setDescription('Play TicTacToe')
-            .addUserOption(o => o.setName('user').setDescription('Opponent (leave blank to play vs bot)').setRequired(false)),
+            .setName('tenor').setDescription('Search Tenor for GIFs')
+            .addStringOption(o => o.setName('keyword').setDescription('Search keyword').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('steal').setDescription('View the most recent custom emote used')
+            .addStringOption(o => o.setName('message_link').setDescription('Message link (optional)').setRequired(false)),
+
+        new SlashCommandBuilder()
+            .setName('duckduckgoimage').setDescription('Search DuckDuckGo images')
+            .addStringOption(o => o.setName('search').setDescription('Search query').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('reverseimage').setDescription('Reverse image search on Google/TinEye/Yandex')
+            .addStringOption(o => o.setName('url').setDescription('Image URL').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('image').setDescription('Search Google images')
+            .addStringOption(o => o.setName('search').setDescription('Search query').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('book').setDescription('Search Open Library for a book')
+            .addStringOption(o => o.setName('search').setDescription('Title, author, or ISBN').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('manga').setDescription('Search MyAnimeList for manga')
+            .addStringOption(o => o.setName('search').setDescription('Manga title').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('anime').setDescription('Search MyAnimeList for anime')
+            .addStringOption(o => o.setName('search').setDescription('Anime title').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('character').setDescription('Search MyAnimeList for a character')
+            .addStringOption(o => o.setName('search').setDescription('Character name').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('tone').setDescription('Analyze text toxicity with Google Perspective')
+            .addStringOption(o => o.setName('text').setDescription('Text to analyze').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('tags').setDescription('Tag system — display, add, edit, random, rename, reset, search, remove, list, author')
+            .addStringOption(o => o.setName('tag_name').setDescription('Tag name or subcommand').setRequired(false)),
+
+        new SlashCommandBuilder()
+            .setName('tvshow').setDescription('Get TV show info from TVMaze')
+            .addStringOption(o => o.setName('title').setDescription('TV show title').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('game').setDescription('Get game info from RAWG')
+            .addStringOption(o => o.setName('title').setDescription('Game title').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('movie').setDescription('Get movie info from OMDB')
+            .addStringOption(o => o.setName('title').setDescription('Movie title').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('movieexpand').setDescription('Get expanded movie info from OMDB')
+            .addStringOption(o => o.setName('title').setDescription('Movie title').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('ocr').setDescription('Detect text in an image')
+            .addStringOption(o => o.setName('url').setDescription('Image URL').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('ocrtr').setDescription('OCR an image and translate the text')
+            .addStringOption(o => o.setName('url').setDescription('Image URL').setRequired(true))
+            .addStringOption(o => o.setName('to_language').setDescription('Target language code (default: en)').setRequired(false)),
+
+        new SlashCommandBuilder()
+            .setName('translate').setDescription('Translate text using Google Translate')
+            .addStringOption(o => o.setName('text').setDescription('Text to translate').setRequired(true))
+            .addStringOption(o => o.setName('to_language').setDescription('Target language (default: en)').setRequired(false))
+            .addStringOption(o => o.setName('from_language').setDescription('Source language (default: auto)').setRequired(false)),
+
+        new SlashCommandBuilder()
+            .setName('tts').setDescription('Convert text to speech MP3')
+            .addStringOption(o => o.setName('text').setDescription('Text to speak').setRequired(true))
+            .addStringOption(o => o.setName('speaker').setDescription('Language: en, es, fr, de, it, ja, ko, ru, ar, pt, nl, pl, tr, zh').setRequired(false)),
+
+        new SlashCommandBuilder()
+            .setName('ttschannel').setDescription('Speak text in your current voice channel')
+            .addStringOption(o => o.setName('text').setDescription('Text to speak').setRequired(true))
+            .addStringOption(o => o.setName('speaker').setDescription('Language code').setRequired(false)),
+
+        new SlashCommandBuilder()
+            .setName('lego').setDescription('Legofy an image')
+            .addStringOption(o => o.setName('url').setDescription('Image URL').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('makegif').setDescription('Convert a video to GIF')
+            .addStringOption(o => o.setName('url').setDescription('Video URL').setRequired(true))
+            .addStringOption(o => o.setName('quality').setDescription('Quality 1-30 (default: 10)').setRequired(false))
+            .addStringOption(o => o.setName('fps').setDescription('FPS (default: 15)').setRequired(false))
+            .addBooleanOption(o => o.setName('fast_forward').setDescription('Fast forward?').setRequired(false)),
+
+        new SlashCommandBuilder()
+            .setName('transparent').setDescription('Remove background from an image')
+            .addStringOption(o => o.setName('url').setDescription('Image URL').setRequired(true)),
+
+        new SlashCommandBuilder()
+            .setName('wolfram').setDescription('Query WolframAlpha')
+            .addStringOption(o => o.setName('query').setDescription('Your query').setRequired(true)),
+
+        new SlashCommandBuilder().setName('juul').setDescription('Share the server juul'),
+
+        new SlashCommandBuilder().setName('juul_hit').setDescription('Hit the server juul'),
+
+        new SlashCommandBuilder()
+            .setName('juul_pass').setDescription('Pass the server juul to someone')
+            .addUserOption(o => o.setName('member').setDescription('User to pass to').setRequired(true)),
+
+        new SlashCommandBuilder().setName('juul_toggle').setDescription('Toggle the server juul on/off'),
+
+        new SlashCommandBuilder().setName('juul_stats').setDescription('Show server juul stats'),
+
+        new SlashCommandBuilder()
+            .setName('juul_flavor').setDescription('Change the server juul flavor')
+            .addStringOption(o => o.setName('flavor').setDescription('New flavor').setRequired(true)),
+
+        new SlashCommandBuilder().setName('juul_steal').setDescription('Steal the server juul'),
 
         // ── Roleplay ──
         new SlashCommandBuilder()

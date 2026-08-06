@@ -4,10 +4,8 @@ const { getGuildDb } = require('./database');
 // Global bot owners
 let _owners = null;
 function getBotOwners() {
-  if (!_owners) {
-    try { _owners = require('../config/botOwners.json').owners || []; }
-    catch { _owners = []; }
-  }
+  try { _owners = require('../config/botOwners.json').owners || []; }
+  catch { _owners = []; }
   return _owners;
 }
 
@@ -79,6 +77,38 @@ function isCommandRestricted(member, command) {
     const { isRestricted } = require('./restrictcommand');
     return isRestricted(member, command, member.guild.id);
   } catch { return false; }
+}
+
+// ══════════════════════════════════════════════════════════
+// SMART ROLE RESOLVER
+// ══════════════════════════════════════════════════════════
+function resolveRole(guild, query) {
+  if (!query) return null;
+
+  // 1. Role mention or raw ID
+  const mentionMatch = query.match(/^<@&(\d+)>$/);
+  const id = mentionMatch ? mentionMatch[1] : /^\d+$/.test(query) ? query : null;
+  if (id) {
+    const role = guild.roles.cache.get(id);
+    if (role) return role;
+  }
+
+  const q = query.toLowerCase();
+  const roles = [...guild.roles.cache.values()].filter(r => r.id !== guild.id);
+
+  // 2. Exact name match (case-insensitive)
+  const exact = roles.find(r => r.name.toLowerCase() === q);
+  if (exact) return exact;
+
+  // 3. Partial match (starts with)
+  const partial = roles.find(r => r.name.toLowerCase().startsWith(q));
+  if (partial) return partial;
+
+  // 4. Substring match
+  const substring = roles.find(r => r.name.toLowerCase().includes(q));
+  if (substring) return substring;
+
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -157,4 +187,5 @@ module.exports = {
   hasPermission,
   isCommandRestricted, checkRestriction,
   buildInvokeVars, sendInvokeReply, formatTimeLeft,
+  resolveRole,
 };

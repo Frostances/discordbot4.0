@@ -549,4 +549,5 @@ module.exports = {
     onEmojiDelete,
     onEmojiUpdate,
     onVoiceStateUpdate,
+  onAntiNukeTrigger,
 };

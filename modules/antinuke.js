@@ -229,6 +229,26 @@ async function handleAntiNukeTrigger(client, guild, type, executorId, targetBotI
   const triggered = trackAction(guild.id, executorId, type, limit);
   if (!triggered) return;
 
+  // ── Webhook auto-delete ──
+  if (type === 'webhook' && targetBotId) {
+    try {
+      const webhooks = await guild.fetchWebhooks();
+      const wh = webhooks.get(targetBotId);
+      if (wh) {
+        await wh.delete('[AntiNuke] Auto-deleted malicious webhook');
+      }
+    } catch {}
+  }
+
+  // ── Antinuke logging to general log system ──
+  try {
+    const { onAntiNukeTrigger } = require('./logging');
+    const member = await guild.members.fetch(executorId).catch(() => null);
+    if (member) {
+      await onAntiNukeTrigger(guild, type, member, modCfg.action || 'ban', `Triggered ${type} protection`);
+    }
+  } catch {}
+
   await punish(guild, executorId, modCfg.action || 'ban', type, cfg.logChannel);
 }
 

@@ -530,6 +530,28 @@ async function onVoiceStateUpdate(oldState, newState) {
     }
 }
 
+async function onAntiNukeTrigger(guild, type, member, action, reason) {
+    const { getGuildDb } = require('./database');
+    const db = getGuildDb(guild.id);
+    const cfg = getLogConfig(db);
+    if (!Object.values(cfg.channels).some(ch => ch.events.includes('members'))) return;
+
+    await sendLog(guild, 'members', (color) => {
+        return new EmbedBuilder()
+            .setTitle('🛡️ AntiNuke Triggered')
+            .setColor('#FF0000')
+            .setThumbnail(member.user?.displayAvatarURL?.() || null)
+            .addFields(
+                { name: '👤 User', value: `${member.user?.tag || 'Unknown'} (<@${member.id}>)`, inline: true },
+                { name: '⚡ Type', value: type, inline: true },
+                { name: '🚫 Punishment', value: action, inline: true },
+                { name: '📝 Reason', value: reason || 'No reason provided' },
+            )
+            .setFooter({ text: `User ID: ${member.id}` })
+            .setTimestamp();
+    });
+}
+
 module.exports = {
     handleLogCommand,
     onMessageDelete,
@@ -549,5 +571,5 @@ module.exports = {
     onEmojiDelete,
     onEmojiUpdate,
     onVoiceStateUpdate,
-  onAntiNukeTrigger,
+    onAntiNukeTrigger,
 };

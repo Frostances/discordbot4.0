@@ -1,4 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, PermissionFlagsBits } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { COLORS, base } = require('../utils/embeds');
 const { getGuildDb, getUserDb } = require('../modules/database');
 const { Readable } = require('node:stream');
@@ -412,7 +415,7 @@ async function handleGiphy(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,giphy <query>`'));
   const key = API_KEYS.GIPHY_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `GIPHY_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://developers.giphy.com/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `GIPHY_API_KEY` to `config/apikeys.js`.\nGet one at https://developers.giphy.com/'));
   try {
     const data = await jsonFetch(`https://api.giphy.com/v1/gifs/search?api_key=${key}&q=${encodeURIComponent(query)}&limit=25&rating=g`);
     if (!data.data?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No GIFs found.'));
@@ -428,7 +431,7 @@ async function handleTenor(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,tenor <query>`'));
   const key = API_KEYS.TENOR_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `TENOR_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://tenor.google.com/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `TENOR_API_KEY` to `config/apikeys.js`.\nGet one at https://tenor.google.com/'));
   try {
     const data = await jsonFetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${key}&client_key=kaido_bot&limit=25`);
     if (!data.results?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No GIFs found.'));
@@ -620,7 +623,7 @@ async function handleTone(ctx, args) {
   const text = args.join(' ').trim();
   if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,tone <text>`'));
   const key = API_KEYS.PERSPECTIVE_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `PERSPECTIVE_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://perspectiveapi.com/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `PERSPECTIVE_API_KEY` to `config/apikeys.js`.\nGet one at https://perspectiveapi.com/'));
   try {
     const body = { comment: { text }, languages: ['en'], requestedAttributes: { TOXICITY: {}, SEVERE_TOXICITY: {}, IDENTITY_ATTACK: {}, INSULT: {}, PROFANITY: {}, THREAT: {} } };
     const res = await fetch(`https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${key}`, {
@@ -789,7 +792,7 @@ async function handleGame(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Title').setDescription('Usage: `,game <title>`'));
   const key = API_KEYS.RAWG_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `RAWG_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://rawg.io/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `RAWG_API_KEY` to `config/apikeys.js`.\nGet one at https://rawg.io/'));
   try {
     const search = await jsonFetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(query)}&page_size=5`);
     if (!search.results?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No game found.'));
@@ -813,7 +816,7 @@ async function handleMovie(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Title').setDescription('Usage: `,movie <title>`'));
   const key = API_KEYS.OMDB_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OMDB_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://www.omdbapi.com/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OMDB_API_KEY` to `config/apikeys.js`.\nGet one at https://www.omdbapi.com/'));
   try {
     const data = await jsonFetch(`https://www.omdbapi.com/?t=${encodeURIComponent(query)}&apikey=${key}&plot=short`);
     if (data.Response === 'False') return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription(data.Error || 'Movie not found.'));
@@ -839,7 +842,7 @@ async function handleOcr(ctx, args) {
   const url = args[0];
   if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocr <image-url>`'));
   const key = API_KEYS.OCR_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://ocr.space/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js`.\nGet one at https://ocr.space/'));
   try {
     const res = await fetch(`https://api.ocr.space/parse/imageurl?apikey=${key}&url=${encodeURIComponent(url)}&language=eng`);
     const data = await res.json();
@@ -856,7 +859,7 @@ async function handleOcrtr(ctx, args) {
   const toLang = args[1] || 'en';
   if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocrtr <image-url> <to-language>`'));
   const key = API_KEYS.OCR_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js` or your `.env` file.'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js`.'));
   try {
     const ocrRes = await fetch(`https://api.ocr.space/parse/imageurl?apikey=${key}&url=${encodeURIComponent(url)}&language=eng`);
     const ocrData = await ocrRes.json();
@@ -920,6 +923,24 @@ async function handleTts(ctx, args) {
 // ══════════════════════════════════════════════════════════
 // 26. TTS CHANNEL (speak in VC)
 // ══════════════════════════════════════════════════════════
+const ttsConnections = new Map(); // guildId -> { connection, player, tmpFile, timeout }
+
+function cleanupTts(guildId) {
+  const entry = ttsConnections.get(guildId);
+  if (!entry) return;
+  if (entry.timeout) clearTimeout(entry.timeout);
+  try { entry.player?.stop(); } catch {}
+  try {
+    if (entry.connection && entry.connection.state.status !== 'destroyed') {
+      entry.connection.destroy();
+    }
+  } catch {}
+  if (entry.tmpFile && fs.existsSync(entry.tmpFile)) {
+    try { fs.unlinkSync(entry.tmpFile); } catch {}
+  }
+  ttsConnections.delete(guildId);
+}
+
 async function handleTtsChannel(ctx, args) {
   let speaker = 'en', textStart = 0;
   const voices = ['en','es','fr','de','it','ja','ko','ru','ar','pt','nl','pl','tr','zh'];
@@ -929,42 +950,108 @@ async function handleTtsChannel(ctx, args) {
   const vc = ctx.member?.voice?.channel;
   if (!vc) return replyEmbed(ctx, base(COLORS.error).setTitle('Not in VC').setDescription('Join a voice channel first.'));
 
+  // Check if bot is already in another VC in this guild
+  const botMember = ctx.guild.members.me;
+  if (botMember?.voice?.channel && botMember.voice.channel.id !== vc.id) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Bot Already in VC')
+      .setDescription(`The bot is currently in **${botMember.voice.channel.name}**. Use \`,stop\` to make it leave first.`));
+  }
+
   // Lazy-load voice dependencies
-  let joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, StreamType;
+  let voice;
   try {
-    const voice = require('@discordjs/voice');
-    joinVoiceChannel = voice.joinVoiceChannel;
-    createAudioPlayer = voice.createAudioPlayer;
-    createAudioResource = voice.createAudioResource;
-    AudioPlayerStatus = voice.AudioPlayerStatus;
-    StreamType = voice.StreamType;
+    voice = require('@discordjs/voice');
   } catch {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Dependency').setDescription('Install `@discordjs/voice` and `ffmpeg-static` to use this feature.\nRun: `npm install @discordjs/voice ffmpeg-static`'));
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Dependency')
+      .setDescription('Install `@discordjs/voice` and `ffmpeg-static` to use this feature.\nRun: `npm install @discordjs/voice ffmpeg-static`'));
+  }
+
+  // Check ffmpeg-static is available
+  try {
+    require('ffmpeg-static');
+  } catch {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing ffmpeg')
+      .setDescription('`ffmpeg-static` is required to play audio.\nRun: `npm install ffmpeg-static`'));
   }
 
   try {
+    // Fetch TTS audio from Google
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${speaker}&client=tw-ob`;
+    console.log('[TTS] Fetching:', url.slice(0, 80) + '...');
     const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-    if (!res.ok || res.headers.get('content-type')?.includes('text/html')) throw new Error('Google TTS blocked');
+    if (!res.ok) throw new Error(`Google TTS HTTP ${res.status}`);
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('text/html')) throw new Error('Google TTS returned HTML (blocked)');
     const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length < 1000) throw new Error(`TTS audio too small (${buffer.length} bytes) — likely blocked`);
+    console.log('[TTS] Audio fetched:', buffer.length, 'bytes');
 
-    const connection = joinVoiceChannel({ channelId: vc.id, guildId: ctx.guild.id, adapterCreator: ctx.guild.voiceAdapterCreator });
-    const player = createAudioPlayer();
-    const resource = createAudioResource(Readable.from([buffer]), { inputType: StreamType.Arbitrary });
+    // Clean up any existing TTS for this guild
+    cleanupTts(ctx.guild.id);
+
+    // Join voice channel
+    const connection = voice.joinVoiceChannel({
+      channelId: vc.id,
+      guildId: ctx.guild.id,
+      adapterCreator: ctx.guild.voiceAdapterCreator,
+      selfDeaf: false,
+      selfMute: false,
+    });
+
+    // Wait for connection to be ready (CRITICAL — without this, audio won't play)
+    try {
+      await voice.entersState(connection, voice.VoiceConnectionStatus.Ready, 15000);
+      console.log('[TTS] Voice connection ready');
+    } catch (e) {
+      connection.destroy();
+      throw new Error('Could not connect to voice channel. Check bot has Connect + Speak permissions.');
+    }
+
+    // Write buffer to temp file — ffmpeg needs a real file path, not a stream
+    const tmpFile = path.join(os.tmpdir(), `kaido_tts_${ctx.guild.id}_${Date.now()}.mp3`);
+    fs.writeFileSync(tmpFile, buffer);
+    console.log('[TTS] Temp file written:', tmpFile);
+
+    // Create player with NoSubscriberBehavior.Play so it doesn't stop immediately
+    const player = voice.createAudioPlayer({
+      behaviors: { noSubscriber: voice.NoSubscriberBehavior.Play }
+    });
+
+    // Create audio resource from file
+    const resource = voice.createAudioResource(tmpFile, {
+      inputType: voice.StreamType.Arbitrary,
+      inlineVolume: true,
+    });
+
     player.play(resource);
     connection.subscribe(player);
+    console.log('[TTS] Player started');
 
-    player.on(AudioPlayerStatus.Idle, () => { connection.destroy(); });
-    player.on('error', (err) => { console.error('TTS player error:', err); connection.destroy(); });
+    // Store for cleanup
+    const entry = { connection, player, tmpFile };
+    ttsConnections.set(ctx.guild.id, entry);
+
+    // Auto-disconnect after 5 minutes of inactivity
+    player.on(voice.AudioPlayerStatus.Idle, () => {
+      console.log('[TTS] Player idle — scheduling disconnect in 5 min');
+      entry.timeout = setTimeout(() => cleanupTts(ctx.guild.id), 5 * 60 * 1000);
+    });
+
+    player.on('error', (err) => {
+      console.error('[TTS] Player error:', err.message);
+      cleanupTts(ctx.guild.id);
+    });
 
     return replyEmbed(ctx, base(COLORS.success).setTitle('Speaking').setDescription(`Speaking in **${vc.name}**...`));
   } catch (err) {
-    console.error('TTS channel error:', err);
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription(`Could not speak in voice channel.\n**Reason:** ${err.message || 'Unknown error'}`));
+    console.error('[TTS] Error:', err);
+    cleanupTts(ctx.guild.id);
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed')
+      .setDescription(`Could not speak in voice channel.
+**Reason:** ${err.message || 'Unknown error'}`));
   }
 }
 
-// ══════════════════════════════════════════════════════════
 // 27. LEGO (Legofy image)
 // ══════════════════════════════════════════════════════════
 async function handleLego(ctx, args) {
@@ -999,10 +1086,15 @@ async function handleTransparent(ctx, args) {
   const url = args[0];
   if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,transparent <image-url>`'));
   const key = API_KEYS.REMOVEBG_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `REMOVEBG_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://www.remove.bg/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `REMOVEBG_API_KEY` to `config/apikeys.js`.\nGet one at https://www.remove.bg/'));
   try {
-    const res = await fetch(`https://api.remove.bg/v1.0/removebg?image_url=${encodeURIComponent(url)}`, {
-      headers: { 'X-Api-Key': key },
+    const res = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': key,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ image_url: url }),
       signal: AbortSignal.timeout(20000)
     });
     if (!res.ok) {
@@ -1030,7 +1122,7 @@ async function handleWolfram(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Query').setDescription('Usage: `,wolfram <query>`'));
   const key = API_KEYS.WOLFRAM_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `WOLFRAM_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://products.wolframalpha.com/api/'));
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `WOLFRAM_API_KEY` to `config/apikeys.js`.\nGet one at https://products.wolframalpha.com/api/'));
   try {
     const data = await jsonFetch(`https://api.wolframalpha.com/v2/query?input=${encodeURIComponent(query)}&format=plaintext&output=JSON&appid=${key}`);
     const pods = data.queryresult?.pods;

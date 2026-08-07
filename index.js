@@ -1517,6 +1517,23 @@ client.on('messageCreate', async (message) => {
              return handleMediaCommand(message, command, args);
          }
 
+    // ── Force disconnect (stop always works even if not playing) ──
+         if (command === 'disconnect' || command === 'stop') {
+           const botMember = message.guild.members.me;
+           if (botMember?.voice?.channel) {
+             try {
+               const voice = require('@discordjs/voice');
+               const conn = voice.getVoiceConnection(message.guild.id);
+               if (conn) {
+                 conn.destroy();
+                 return message.reply('⏹️ Disconnected from voice channel.');
+               }
+             } catch (e) {
+               console.error('Force disconnect error:', e);
+             }
+           }
+         }
+
     // ── Music commands ──
          if (MUSIC_COMMANDS.has(command)) {
              // Handle queue subcommands

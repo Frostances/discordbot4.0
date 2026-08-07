@@ -142,7 +142,7 @@ class GameSession {
     this.players.set(this.hostId, { user: this.hostUser, lives: 2, eliminated: false });
     lockedPlayers.add(this.hostId);
 
-    const filter = (reaction, user) => reaction.emoji.name === '<:checkmark:1528890895859056680>' && !user.bot;
+    const filter = (reaction, user) => reaction.emoji.id === '1528890895859056680' && !user.bot;
     this.lobbyCollector = this.lobbyMessage.createReactionCollector({
       filter,
       time: 30000,
@@ -219,7 +219,7 @@ class GameSession {
 
     try {
       const msg = await this.channel.messages.fetch(this.lobbyMessage.id);
-      const reaction = msg.reactions.cache.get('<:checkmark:1528890895859056680>');
+      const reaction = msg.reactions.cache.find(r => r.emoji.id === '1528890895859056680');
       if (reaction) {
         const users = await reaction.users.fetch();
         for (const [userId, user] of users) {
@@ -358,7 +358,6 @@ class GameSession {
 
     const guess = message.content.trim().toLowerCase();
     if (!guess || guess.length < 3) return;
-    if (guess.length <= this.currentSequence.length) return;
     if (!/^[a-z]+$/.test(guess)) return;
     if (!dictionarySet.has(guess)) return;
     if (!guess.includes(this.currentSequence)) return;

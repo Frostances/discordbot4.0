@@ -185,9 +185,9 @@ async function handleAntiRaidCommand(message, args) {
   const cfg = getConfig(message.guild.id);
   const sub = args[0]?.toLowerCase();
 
-  // ── No sub / overview ──
+  // ── No sub / help ──
   if (!sub) {
-    return sendOverview(message, cfg);
+    return sendHelp(message);
   }
 
   // ── Config ──
@@ -266,7 +266,6 @@ async function handleAntiRaidCommand(message, args) {
 
     if (status === 'off') {
       cfg.massjoin = { ...cfg.massjoin, enabled: false };
-      // Auto-disable global if no modules active
       if (!cfg.newaccounts?.enabled && !cfg.avatar?.enabled) cfg.enabled = false;
       saveConfig(message.guild.id, cfg);
       return message.reply({
@@ -398,21 +397,24 @@ async function handleAntiRaidCommand(message, args) {
 }
 
 // ══════════════════════════════════════════════════════════
-// OVERVIEW EMBED
+// HELP EMBED (no subcommand)
 // ══════════════════════════════════════════════════════════
-async function sendOverview(message, cfg) {
+async function sendHelp(message) {
   const embed = new EmbedBuilder()
-    .setTitle('🚨 AntiRaid Configuration')
-    .setColor('#FF4444')
+    .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+    .setTitle('🛡️ Antiraid Commands')
+    .setDescription('Configure protection against potential raids.')
+    .setColor('#2F3136')
     .addFields(
-      { name: 'Enabled', value: cfg.enabled ? '✅' : '❌', inline: true },
-      { name: 'Raid State', value: cfg.raidState ? '🔴 ACTIVE' : '🟢 Safe', inline: true },
-      { name: 'Mass Join', value: cfg.massjoin?.enabled ? `✅ (limit: ${cfg.massjoin.threshold}/10s, do: ${cfg.massjoin.action})` : '❌', inline: true },
-      { name: 'New Accounts', value: cfg.newaccounts?.enabled ? `✅ (min: ${cfg.newaccounts.threshold} days, do: ${cfg.newaccounts.action})` : '❌', inline: true },
-      { name: 'Avatar Required', value: cfg.avatar?.enabled ? `✅ (do: ${cfg.avatar.action})` : '❌', inline: true },
-      { name: 'Whitelist', value: (cfg.whitelist || []).map(id => `<@${id}>`).join(', ') || 'None' }
+      { name: '`,antiraid massjoin on/off`', value: 'Protect server against mass bot raids\n`--threshold (number)` ` --do (ban|kick)` ` --lock (true|false)` ` --punish (true|false)`', inline: false },
+      { name: '`,antiraid newaccounts on/off`', value: 'Punish new registered accounts\n`--threshold (days)` ` --do (ban|kick)`', inline: false },
+      { name: '`,antiraid avatar on/off`', value: 'Punish accounts without a profile picture\n`--do (ban|kick)`', inline: false },
+      { name: '`,antiraid whitelist @user`', value: 'Create a one-time whitelist to allow a user to join', inline: false },
+      { name: '`,antiraid whitelist view`', value: 'View all current antiraid whitelists', inline: false },
+      { name: '`,antiraid config`', value: 'View server antiraid configuration', inline: false },
+      { name: '`,antiraid state`', value: 'Turn off server raid state', inline: false },
     )
-    .setFooter({ text: ',antiraid massjoin | ,antiraid newaccounts | ,antiraid avatar | ,antiraid whitelist | ,antiraid config | ,antiraid state' });
+    .setFooter({ text: 'Requires Manage Server permission' });
 
   await message.channel.send({ embeds: [embed] });
 }

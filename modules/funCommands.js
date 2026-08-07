@@ -1,11 +1,28 @@
-/**
- * funCommands.js — Premium Fun Commands Module
- * 50+ commands replacing the entire fun category.
- */
-
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, AttachmentBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, base } = require('../utils/embeds');
 const { getGuildDb, getUserDb } = require('../modules/database');
+const { Readable } = require('node:stream');
+
+// ══════════════════════════════════════════════════════════
+// API KEYS — Paste your keys here if config/apikeys.js is missing
+// ══════════════════════════════════════════════════════════
+let API_KEYS;
+try {
+  API_KEYS = require('../config/apikeys');
+} catch {
+  API_KEYS = {
+    GOOGLE_API_KEY: '',
+    GOOGLE_CX: '',
+    GIPHY_API_KEY: '',
+    TENOR_API_KEY: '',
+    PERSPECTIVE_API_KEY: '',
+    RAWG_API_KEY: '',
+    OMDB_API_KEY: '',
+    OCR_API_KEY: '',
+    REMOVEBG_API_KEY: '',
+    WOLFRAM_API_KEY: '',
+  };
+}
 
 // ══════════════════════════════════════════════════════════
 // HELPERS
@@ -20,6 +37,15 @@ async function textFetch(url, opts = {}) {
   const res = await fetch(url, { signal: AbortSignal.timeout(15000), ...opts });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
+}
+
+async function bufferFetch(url, opts = {}) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(20000), ...opts });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} — ${text.slice(0, 200)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
 }
 
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -40,7 +66,7 @@ function replyEmbed(ctx, embed, files = []) {
 // ══════════════════════════════════════════════════════════
 async function handleLyrics(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,lyrics <song>` or `,lyrics <artist> - <song>`'));
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,lyrics <artist - song>` or `,lyrics <song>`'));
   try {
     let artist = query, title = query;
     if (query.includes(' - ')) { [artist, title] = query.split(' - ').map(s => s.trim()); }
@@ -68,7 +94,7 @@ async function handleLyrics(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleDuckDuckGo(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,duckduckgo <search>`'));
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,duckduckgo <query>`'));
   try {
     const html = await textFetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
@@ -183,7 +209,7 @@ async function handleQuote(ctx, args) {
     }
   } catch {}
   if (!targetMsg) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Message Not Found')
-    .setDescription('Provide a message link, message ID, or mention a user.\nUsage: `,quote <message-link/id>`'));
+    .setDescription('Provide a message link, message ID, or mention a user.\nUsage: `,quote <link/id/@user>`'));
   const embed = base(COLORS.primary)
     .setAuthor({ name: targetMsg.author.tag, iconURL: targetMsg.author.displayAvatarURL() })
     .setDescription(targetMsg.content || '*No text content*')
@@ -205,23 +231,7 @@ function tttCheck(b) {
   if (b.every(c => c !== null)) return 'draw';
   return null;
 }
-function tttBest(b, player) {
-  const res = tttCheck(b);
-  if (res === 'O') return { score: 10 };
-  if (res === 'X') return { score: -10 };
-  if (res === 'draw') return { score: 0 };
-  const moves = [];
-  for (let i = 0; i < 9; i++) {
-    if (b[i]) continue;
-    b[i] = player;
-    const s = tttBest(b, player === 'O' ? 'X' : 'O').score;
-    b[i] = null;
-    moves.push({ i, score: s });
-  }
-  return player === 'O'
-    ? moves.reduce((a, m) => m.score > a.score ? m : a)
-    : moves.reduce((a, m) => m.score < a.score ? m : a);
-}
+
 function tttComponents(board) {
   const labels = board.map(c => c === 'X' ? '❌' : c === 'O' ? '⭕' : '⬜');
   return [0, 3, 6].map(offset =>
@@ -235,6 +245,7 @@ function tttComponents(board) {
     )
   );
 }
+
 const tttGames = new Map();
 
 async function handleTicTacToe(ctx, args) {
@@ -242,31 +253,38 @@ async function handleTicTacToe(ctx, args) {
   const challenger = isInteraction ? ctx.user : ctx.author;
   const channelId = isInteraction ? ctx.channelId : ctx.channel.id;
 
+  // ── Stats ──
   if (args[0]?.toLowerCase() === 'stats') {
     const target = isInteraction ? (ctx.options?.getUser?.('user') || ctx.user) : (ctx.mentions?.users?.first() || ctx.author);
     const udb = getUserDb(ctx.guild.id, target.id);
     const stats = { wins: udb.data.tttWins || 0, losses: udb.data.tttLosses || 0, draws: udb.data.tttDraws || 0 };
-    return replyEmbed(ctx, base(COLORS.primary).setTitle(`❌⭕ TicTacToe Stats — ${target.username}`)
-      .addFields(
-        { name: 'Wins', value: stats.wins.toString(), inline: true },
-        { name: 'Losses', value: stats.losses.toString(), inline: true },
-        { name: 'Draws', value: stats.draws.toString(), inline: true },
-        { name: 'Total', value: (stats.wins + stats.losses + stats.draws).toString(), inline: true }
-      ).setThumbnail(target.displayAvatarURL()));
+    const embed = new EmbedBuilder()
+      .setTitle(`❌⭕ TicTacToe — ${target.username}`)
+      .setThumbnail(target.displayAvatarURL())
+      .setColor('#5865F2')
+      .setDescription(
+        `-# WINS\n**${stats.wins}**\n\n` +
+        `-# LOSSES\n**${stats.losses}**\n\n` +
+        `-# DRAWS\n**${stats.draws}**\n\n` +
+        `-# TOTAL GAMES\n**${stats.wins + stats.losses + stats.draws}**`
+      );
+    return replyEmbed(ctx, embed);
   }
 
+  // ── Leaderboard ──
   if (args[0]?.toLowerCase() === 'leaderboard') {
     const db = getGuildDb(ctx.guild.id);
     const users = db.data.users || {};
     const sorted = Object.entries(users).filter(([, d]) => (d.tttWins || 0) > 0).sort((a, b) => (b[1].tttWins || 0) - (a[1].tttWins || 0)).slice(0, 10);
+    if (sorted.length === 0) {
+      return replyEmbed(ctx, new EmbedBuilder().setTitle('🏆 TicTacToe Leaderboard').setDescription('No wins recorded yet.').setColor('#5865F2'));
+    }
     let desc = '';
     for (let i = 0; i < sorted.length; i++) {
       const [uid, d] = sorted[i];
-      const user = await ctx.client.users.fetch(uid).catch(() => null);
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
-      desc += `${medal} **${user ? user.username : 'Unknown'}** — ${d.tttWins || 0} wins\n`;
+      desc += `${i + 1}- <@${uid}> — **${d.tttWins || 0}**\n`;
     }
-    return replyEmbed(ctx, base(COLORS.primary).setTitle('🏆 TicTacToe Leaderboard').setDescription(desc || 'No games played yet.'));
+    return replyEmbed(ctx, new EmbedBuilder().setTitle('🏆 TicTacToe Leaderboard').setDescription(desc).setColor('#5865F2'));
   }
 
   if (tttGames.has(channelId)) {
@@ -274,26 +292,54 @@ async function handleTicTacToe(ctx, args) {
     return isInteraction ? ctx.reply({ content: msg, ephemeral: true }) : ctx.reply(msg);
   }
 
+  // ── Require an opponent mention — no bot play ──
   const opponent = isInteraction ? ctx.options?.getUser?.('user') : ctx.mentions?.users?.first();
-  const vsBot = !opponent || opponent.id === challenger.id || opponent.bot;
-  const xPlayer = challenger, oPlayer = vsBot ? null : opponent;
+  if (!opponent || opponent.id === challenger.id) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Opponent')
+      .setDescription('Mention a user to play against.\nUsage: `,tictactoe @user`\n\nYou cannot play against bots or yourself.'));
+  }
+  if (opponent.bot) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid Opponent')
+      .setDescription('You cannot play against bots. Mention a real user.'));
+  }
+
+  const xPlayer = challenger, oPlayer = opponent;
   const board = Array(9).fill(null);
-  const gameState = { board, xPlayer, oPlayer, vsBot, currentTurn: 'X', channelId, startedAt: Date.now() };
+  const gameState = { board, xPlayer, oPlayer, currentTurn: 'X', channelId, startedAt: Date.now(), lastMoveAt: Date.now() };
   tttGames.set(channelId, gameState);
 
   const embed = new EmbedBuilder().setTitle('❌⭕ TicTacToe').setColor(COLORS.primary).setTimestamp().setFooter({ text: 'Kaido' })
-    .setDescription(vsBot ? `${xPlayer} (**❌**) vs **⭕ Kaido**\n\nYour turn! (❌)` : `${xPlayer} (**❌**) vs ${oPlayer} (**⭕**)\n\n${xPlayer}'s turn (❌)`);
+    .setDescription(`${xPlayer} (**❌**) vs ${oPlayer} (**⭕**)\n\n${xPlayer}'s turn (❌)\n⏰ 30s per move`);
 
   let sent;
   if (isInteraction) { await ctx.reply({ embeds: [embed], components: tttComponents(board) }); sent = await ctx.fetchReply(); }
   else { sent = await ctx.channel.send({ embeds: [embed], components: tttComponents(board) }); }
+
+  // ── 30-second turn timer ──
+  const turnTimer = setInterval(async () => {
+    const gs = tttGames.get(channelId);
+    if (!gs) { clearInterval(turnTimer); return; }
+    const elapsed = Date.now() - gs.lastMoveAt;
+    if (elapsed >= 30000) {
+      tttGames.delete(channelId); clearInterval(turnTimer);
+      const forfeitPlayer = gs.currentTurn === 'X' ? gs.xPlayer : gs.oPlayer;
+      const winner = gs.currentTurn === 'X' ? gs.oPlayer : gs.xPlayer;
+      const wdb = getUserDb(ctx.guild.id, winner.id);
+      wdb.data.tttWins = (wdb.data.tttWins || 0) + 1; wdb.save();
+      const ldb = getUserDb(ctx.guild.id, forfeitPlayer.id);
+      ldb.data.tttLosses = (ldb.data.tttLosses || 0) + 1; ldb.save();
+      const endEmbed = new EmbedBuilder().setTitle('❌⭕ TicTacToe').setColor(COLORS.success).setTimestamp().setFooter({ text: 'Kaido' })
+        .setDescription(`⏰ **${forfeitPlayer.username}** ran out of time!\n\n**${winner.username}** wins by forfeit! 🎉`);
+      await sent.edit({ embeds: [endEmbed], components: tttComponents(gs.board).map(r => { r.components.forEach(b => b.setDisabled(true)); return r; }) }).catch(() => {});
+    }
+  }, 5000);
 
   const collector = sent.createMessageComponentCollector({
     componentType: ComponentType.Button, time: 5 * 60 * 1000,
     filter: i => {
       const gs = tttGames.get(channelId);
       if (!gs) { i.deferUpdate(); return false; }
-      const validUser = gs.currentTurn === 'X' ? i.user.id === gs.xPlayer.id : (gs.vsBot ? false : i.user.id === gs.oPlayer?.id);
+      const validUser = gs.currentTurn === 'X' ? i.user.id === gs.xPlayer.id : i.user.id === gs.oPlayer.id;
       if (!validUser) { i.reply({ content: '❌ It\'s not your turn.', ephemeral: true }); return false; }
       return true;
     },
@@ -305,44 +351,39 @@ async function handleTicTacToe(ctx, args) {
     const idx = parseInt(i.customId.replace('ttt_', ''));
     if (gs.board[idx]) return i.deferUpdate();
     gs.board[idx] = gs.currentTurn;
-    if (!tttCheck(gs.board) && gs.vsBot && gs.currentTurn === 'X') {
-      gs.currentTurn = 'O';
-      const best = tttBest([...gs.board], 'O');
-      if (best.i !== undefined) gs.board[best.i] = 'O';
-    }
+    gs.lastMoveAt = Date.now();
+
     const result = tttCheck(gs.board);
     let desc;
     if (result) {
-      tttGames.delete(channelId); collector.stop('done');
+      tttGames.delete(channelId); clearInterval(turnTimer); collector.stop('done');
       if (result === 'draw') {
         desc = "It\'s a **draw**! 🤝";
-        if (!gs.vsBot && gs.oPlayer) {
-          const udb = getUserDb(ctx.guild.id, gs.xPlayer.id); udb.data.tttDraws = (udb.data.tttDraws || 0) + 1; udb.save();
-          const odb = getUserDb(ctx.guild.id, gs.oPlayer.id); odb.data.tttDraws = (odb.data.tttDraws || 0) + 1; odb.save();
-        } else { const udb = getUserDb(ctx.guild.id, gs.xPlayer.id); udb.data.tttDraws = (udb.data.tttDraws || 0) + 1; udb.save(); }
+        const xdb = getUserDb(ctx.guild.id, gs.xPlayer.id); xdb.data.tttDraws = (xdb.data.tttDraws || 0) + 1; xdb.save();
+        const odb = getUserDb(ctx.guild.id, gs.oPlayer.id); odb.data.tttDraws = (odb.data.tttDraws || 0) + 1; odb.save();
       } else if (result === 'X') {
         desc = `**${gs.xPlayer.username}** wins! 🎉`;
         const udb = getUserDb(ctx.guild.id, gs.xPlayer.id); udb.data.tttWins = (udb.data.tttWins || 0) + 1; udb.save();
-        if (!gs.vsBot && gs.oPlayer) { const odb = getUserDb(ctx.guild.id, gs.oPlayer.id); odb.data.tttLosses = (odb.data.tttLosses || 0) + 1; odb.save(); }
+        const odb = getUserDb(ctx.guild.id, gs.oPlayer.id); odb.data.tttLosses = (odb.data.tttLosses || 0) + 1; odb.save();
       } else {
-        if (gs.vsBot) {
-          desc = '**Kaido** wins! 🤖';
-          const udb = getUserDb(ctx.guild.id, gs.xPlayer.id); udb.data.tttLosses = (udb.data.tttLosses || 0) + 1; udb.save();
-        } else {
-          desc = `**${gs.oPlayer?.username}** wins! 🎉`;
-          const udb = getUserDb(ctx.guild.id, gs.oPlayer.id); udb.data.tttWins = (udb.data.tttWins || 0) + 1; udb.save();
-          const xdb = getUserDb(ctx.guild.id, gs.xPlayer.id); xdb.data.tttLosses = (xdb.data.tttLosses || 0) + 1; xdb.save();
-        }
+        desc = `**${gs.oPlayer.username}** wins! 🎉`;
+        const udb = getUserDb(ctx.guild.id, gs.oPlayer.id); udb.data.tttWins = (udb.data.tttWins || 0) + 1; udb.save();
+        const xdb = getUserDb(ctx.guild.id, gs.xPlayer.id); xdb.data.tttLosses = (xdb.data.tttLosses || 0) + 1; xdb.save();
       }
     } else {
-      if (!gs.vsBot) gs.currentTurn = gs.currentTurn === 'X' ? 'O' : 'X';
+      gs.currentTurn = gs.currentTurn === 'X' ? 'O' : 'X';
       const nextPlayer = gs.currentTurn === 'X' ? gs.xPlayer : gs.oPlayer;
-      desc = gs.vsBot ? `${gs.xPlayer}'s turn (❌)` : `${nextPlayer}'s turn (${gs.currentTurn === 'X' ? '❌' : '⭕'})`;
+      desc = `${nextPlayer}'s turn (${gs.currentTurn === 'X' ? '❌' : '⭕'})\n⏰ 30s per move`;
     }
     const updEmbed = new EmbedBuilder().setTitle('❌⭕ TicTacToe').setDescription(desc).setColor(result && result !== 'draw' ? COLORS.success : COLORS.primary).setTimestamp().setFooter({ text: 'Kaido' });
     await i.update({ embeds: [updEmbed], components: result ? tttComponents(gs.board).map(r => { r.components.forEach(b => b.setDisabled(true)); return r; }) : tttComponents(gs.board) });
   });
-  collector.on('end', (_, reason) => { if (reason !== 'done') { tttGames.delete(channelId); sent.edit({ components: [] }).catch(() => {}); } });
+  collector.on('end', (_, reason) => {
+    if (reason !== 'done') {
+      tttGames.delete(channelId); clearInterval(turnTimer);
+      sent.edit({ components: [] }).catch(() => {});
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -350,11 +391,11 @@ async function handleTicTacToe(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleGoogle(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,google <search>`'));
-  const API_KEY = process.env.GOOGLE_API_KEY, CX = process.env.GOOGLE_CX;
-  if (API_KEY && CX) {
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,google <query>`'));
+  const key = API_KEYS.GOOGLE_API_KEY, cx = API_KEYS.GOOGLE_CX;
+  if (key && cx) {
     try {
-      const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${API_KEY}&cx=${CX}&q=${encodeURIComponent(query)}`);
+      const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}`);
       if (data.items?.length) {
         const results = data.items.slice(0, 5).map((item, i) => `**${i + 1}.** [${item.title}](${item.link})\n${item.snippet?.slice(0, 120) || ''}...`);
         return replyEmbed(ctx, base(COLORS.primary).setTitle(`🔍 Google: ${query}`).setDescription(results.join('\n\n')).setFooter({ text: 'Google Custom Search' }));
@@ -369,11 +410,11 @@ async function handleGoogle(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleGiphy(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,giphy <keyword>`'));
-  const API_KEY = process.env.GIPHY_API_KEY;
-  if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `GIPHY_API_KEY` to your `.env` file.\nGet one at https://developers.giphy.com/'));
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,giphy <query>`'));
+  const key = API_KEYS.GIPHY_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `GIPHY_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://developers.giphy.com/'));
   try {
-    const data = await jsonFetch(`https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${encodeURIComponent(query)}&limit=25&rating=g`);
+    const data = await jsonFetch(`https://api.giphy.com/v1/gifs/search?api_key=${key}&q=${encodeURIComponent(query)}&limit=25&rating=g`);
     if (!data.data?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No GIFs found.'));
     const gif = rand(data.data);
     return replyEmbed(ctx, base(COLORS.primary).setTitle(`🎞️ Giphy: ${query}`).setImage(gif.images.original.url).setFooter({ text: `Powered by Giphy • ${gif.username || 'unknown'}` }));
@@ -385,11 +426,11 @@ async function handleGiphy(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleTenor(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,tenor <keyword>`'));
-  const API_KEY = process.env.TENOR_API_KEY;
-  if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `TENOR_API_KEY` to your `.env` file.\nGet one at https://tenor.google.com/'));
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,tenor <query>`'));
+  const key = API_KEYS.TENOR_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `TENOR_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://tenor.google.com/'));
   try {
-    const data = await jsonFetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${API_KEY}&client_key=kaido_bot&limit=25`);
+    const data = await jsonFetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${key}&client_key=kaido_bot&limit=25`);
     if (!data.results?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No GIFs found.'));
     const gif = rand(data.results);
     return replyEmbed(ctx, base(COLORS.primary).setTitle(`🎞️ Tenor: ${query}`).setImage(gif.media_formats.gif.url).setFooter({ text: 'Powered by Tenor' }));
@@ -431,7 +472,7 @@ async function handleSteal(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleDuckDuckGoImage(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,duckduckgoimage <search>`'));
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,duckduckgoimage <query>`'));
   try {
     const html = await textFetch(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
@@ -452,7 +493,7 @@ async function handleDuckDuckGoImage(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleReverseImage(ctx, args) {
   const url = args[0];
-  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,reverseimage <image-url>`'));
+  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,reverseimage <url>`'));
   return replyEmbed(ctx, base(COLORS.primary).setTitle('🔍 Reverse Image Search')
     .setDescription(`[Search on Google Lens](https://lens.google.com/uploadbyurl?url=${encodeURIComponent(url)})\n[Search on TinEye](https://tineye.com/search?url=${encodeURIComponent(url)})\n[Search on Yandex](https://yandex.com/images/search?url=${encodeURIComponent(url)}&rpt=imageview)`)
     .setImage(url).setFooter({ text: 'Click a link above to view results' }));
@@ -463,11 +504,11 @@ async function handleReverseImage(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleImage(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,image <search>`'));
-  const API_KEY = process.env.GOOGLE_API_KEY, CX = process.env.GOOGLE_CX;
-  if (API_KEY && CX) {
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,image <query>`'));
+  const key = API_KEYS.GOOGLE_API_KEY, cx = API_KEYS.GOOGLE_CX;
+  if (key && cx) {
     try {
-      const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${API_KEY}&cx=${CX}&q=${encodeURIComponent(query)}&searchType=image`);
+      const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}&searchType=image`);
       if (data.items?.length) {
         const img = rand(data.items);
         return replyEmbed(ctx, base(COLORS.primary).setTitle(`🖼️ Image: ${query}`).setImage(img.link).setFooter({ text: `From: ${img.displayLink || 'Google'}` }));
@@ -482,7 +523,7 @@ async function handleImage(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleBook(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,book <title/author/isbn>`'));
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,book <title>`'));
   try {
     const data = await jsonFetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=5`);
     if (!data.docs?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No books found.'));
@@ -578,11 +619,11 @@ async function handleCharacter(ctx, args) {
 async function handleTone(ctx, args) {
   const text = args.join(' ').trim();
   if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,tone <text>`'));
-  const API_KEY = process.env.PERSPECTIVE_API_KEY;
-  if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `PERSPECTIVE_API_KEY` to your `.env` file.\nGet one at https://perspectiveapi.com/'));
+  const key = API_KEYS.PERSPECTIVE_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `PERSPECTIVE_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://perspectiveapi.com/'));
   try {
     const body = { comment: { text }, languages: ['en'], requestedAttributes: { TOXICITY: {}, SEVERE_TOXICITY: {}, IDENTITY_ATTACK: {}, INSULT: {}, PROFANITY: {}, THREAT: {} } };
-    const res = await fetch(`https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${API_KEY}`, {
+    const res = await fetch(`https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${key}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
     const data = await res.json();
@@ -747,10 +788,10 @@ async function handleTvshow(ctx, args) {
 async function handleGame(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Title').setDescription('Usage: `,game <title>`'));
-  const API_KEY = process.env.RAWG_API_KEY;
-  if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `RAWG_API_KEY` to your `.env` file.\nGet one at https://rawg.io/'));
+  const key = API_KEYS.RAWG_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `RAWG_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://rawg.io/'));
   try {
-    const search = await jsonFetch(`https://api.rawg.io/api/games?key=${API_KEY}&search=${encodeURIComponent(query)}&page_size=5`);
+    const search = await jsonFetch(`https://api.rawg.io/api/games?key=${key}&search=${encodeURIComponent(query)}&page_size=5`);
     if (!search.results?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No game found.'));
     const game = search.results[0];
     const embed = base(COLORS.primary).setTitle(`🎮 ${game.name}`).setURL(`https://rawg.io/games/${game.slug}`)
@@ -771,10 +812,10 @@ async function handleGame(ctx, args) {
 async function handleMovie(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Title').setDescription('Usage: `,movie <title>`'));
-  const API_KEY = process.env.OMDB_API_KEY;
-  if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OMDB_API_KEY` to your `.env` file.\nGet one at https://www.omdbapi.com/'));
+  const key = API_KEYS.OMDB_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OMDB_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://www.omdbapi.com/'));
   try {
-    const data = await jsonFetch(`https://www.omdbapi.com/?t=${encodeURIComponent(query)}&apikey=${API_KEY}&plot=short`);
+    const data = await jsonFetch(`https://www.omdbapi.com/?t=${encodeURIComponent(query)}&apikey=${key}&plot=short`);
     if (data.Response === 'False') return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription(data.Error || 'Movie not found.'));
     const embed = base(COLORS.primary).setTitle(`🎬 ${data.Title} (${data.Year})`)
       .setDescription(data.Plot || '*No plot available*')
@@ -797,10 +838,10 @@ async function handleMovie(ctx, args) {
 async function handleOcr(ctx, args) {
   const url = args[0];
   if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocr <image-url>`'));
-  const API_KEY = process.env.OCR_API_KEY;
-  if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to your `.env` file.\nGet one at https://ocr.space/'));
+  const key = API_KEYS.OCR_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://ocr.space/'));
   try {
-    const res = await fetch(`https://api.ocr.space/parse/imageurl?apikey=${API_KEY}&url=${encodeURIComponent(url)}&language=eng`);
+    const res = await fetch(`https://api.ocr.space/parse/imageurl?apikey=${key}&url=${encodeURIComponent(url)}&language=eng`);
     const data = await res.json();
     const text = data.ParsedResults?.[0]?.ParsedText || 'No text detected.';
     return replyEmbed(ctx, base(COLORS.primary).setTitle('🔍 OCR Results').setDescription(`\`\`\`${text.slice(0, 3900)}\`\`\``).setFooter({ text: 'Powered by OCR.space' }));
@@ -814,10 +855,10 @@ async function handleOcrtr(ctx, args) {
   const url = args[0];
   const toLang = args[1] || 'en';
   if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocrtr <image-url> <to-language>`'));
-  const API_KEY = process.env.OCR_API_KEY;
-  if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to your `.env` file.'));
+  const key = API_KEYS.OCR_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js` or your `.env` file.'));
   try {
-    const ocrRes = await fetch(`https://api.ocr.space/parse/imageurl?apikey=${API_KEY}&url=${encodeURIComponent(url)}&language=eng`);
+    const ocrRes = await fetch(`https://api.ocr.space/parse/imageurl?apikey=${key}&url=${encodeURIComponent(url)}&language=eng`);
     const ocrData = await ocrRes.json();
     const text = ocrData.ParsedResults?.[0]?.ParsedText || '';
     if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Text').setDescription('No text detected in the image.'));
@@ -857,259 +898,289 @@ async function handleTranslate(ctx, args) {
   } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not translate text.')); }
 }
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 25. TTS (Text to Speech)
-                                         // ══════════════════════════════════════════════════════════
-                                         async function handleTts(ctx, args) {
-                                           let speaker = 'en', textStart = 0;
-                                           const voices = ['en','es','fr','de','it','ja','ko','ru','ar','pt','nl','pl','tr','zh'];
-                                           if (voices.includes(args[0]?.toLowerCase())) { speaker = args[0].toLowerCase(); textStart = 1; }
-                                           const text = args.slice(textStart).join(' ');
-                                           if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Text').setDescription('Usage: `,tts [language] <text>`\nLanguages: en, es, fr, de, it, ja, ko, ru, ar, pt, nl, pl, tr, zh'));
-                                           try {
-                                             const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${speaker}&client=tw-ob`;
-                                             const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-                                             const buffer = Buffer.from(await res.arrayBuffer());
-                                             const att = new AttachmentBuilder(buffer, { name: 'tts.mp3' });
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('TTS').setDescription(`Language: **${speaker}**`), [att]);
-                                           } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not generate TTS.')); }
-                                         }
+// ══════════════════════════════════════════════════════════
+// 25. TTS (Text to Speech)
+// ══════════════════════════════════════════════════════════
+async function handleTts(ctx, args) {
+  let speaker = 'en', textStart = 0;
+  const voices = ['en','es','fr','de','it','ja','ko','ru','ar','pt','nl','pl','tr','zh'];
+  if (voices.includes(args[0]?.toLowerCase())) { speaker = args[0].toLowerCase(); textStart = 1; }
+  const text = args.slice(textStart).join(' ');
+  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Text').setDescription('Usage: `,tts [language] <text>`\nLanguages: en, es, fr, de, it, ja, ko, ru, ar, pt, nl, pl, tr, zh'));
+  try {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${speaker}&client=tw-ob`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    if (!res.ok || res.headers.get('content-type')?.includes('text/html')) throw new Error('Google TTS blocked');
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const att = new AttachmentBuilder(buffer, { name: 'tts.mp3' });
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('TTS').setDescription(`Language: **${speaker}**`), [att]);
+  } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not generate TTS. Google may have blocked the request.')); }
+}
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 26. TTS CHANNEL (speak in VC)
-                                         // ══════════════════════════════════════════════════════════
-                                         async function handleTtsChannel(ctx, args) {
-                                           let speaker = 'en', textStart = 0;
-                                           const voices = ['en','es','fr','de','it','ja','ko','ru','ar','pt','nl','pl','tr','zh'];
-                                           if (voices.includes(args[0]?.toLowerCase())) { speaker = args[0].toLowerCase(); textStart = 1; }
-                                           const text = args.slice(textStart).join(' ');
-                                           if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Text').setDescription('Usage: `,ttschannel [language] <text>`'));
-                                           const vc = ctx.member?.voice?.channel;
-                                           if (!vc) return replyEmbed(ctx, base(COLORS.error).setTitle('Not in VC').setDescription('Join a voice channel first.'));
-                                           try {
-                                             const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${speaker}&client=tw-ob`;
-                                             const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-                                             const buffer = Buffer.from(await res.arrayBuffer());
-                                             const connection = joinVoiceChannel({ channelId: vc.id, guildId: ctx.guild.id, adapterCreator: ctx.guild.voiceAdapterCreator });
-                                             const player = createAudioPlayer();
-                                             const resource = createAudioResource(Readable.from([buffer]));
-                                             player.play(resource);
-                                             connection.subscribe(player);
-                                             player.on(AudioPlayerStatus.Idle, () => { connection.destroy(); });
-                                             return replyEmbed(ctx, base(COLORS.success).setTitle('Speaking').setDescription(`Speaking in **${vc.name}**...`));
-                                           } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not speak in voice channel.')); }
-                                         }
+// ══════════════════════════════════════════════════════════
+// 26. TTS CHANNEL (speak in VC)
+// ══════════════════════════════════════════════════════════
+async function handleTtsChannel(ctx, args) {
+  let speaker = 'en', textStart = 0;
+  const voices = ['en','es','fr','de','it','ja','ko','ru','ar','pt','nl','pl','tr','zh'];
+  if (voices.includes(args[0]?.toLowerCase())) { speaker = args[0].toLowerCase(); textStart = 1; }
+  const text = args.slice(textStart).join(' ');
+  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Text').setDescription('Usage: `,ttschannel [language] <text>`'));
+  const vc = ctx.member?.voice?.channel;
+  if (!vc) return replyEmbed(ctx, base(COLORS.error).setTitle('Not in VC').setDescription('Join a voice channel first.'));
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 27. LEGO (Legofy image)
-                                         // ══════════════════════════════════════════════════════════
-                                         async function handleLego(ctx, args) {
-                                           const url = args[0];
-                                           if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,lego <image-url>`'));
-                                           try {
-                                             const apiUrl = `https://legoify.vercel.app/api/legoify?url=${encodeURIComponent(url)}`;
-                                             const res = await fetch(apiUrl, { signal: AbortSignal.timeout(20000) });
-                                             if (!res.ok) throw new Error('API failed');
-                                             const buffer = Buffer.from(await res.arrayBuffer());
-                                             const att = new AttachmentBuilder(buffer, { name: 'lego.png' });
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('Legofied').setImage('attachment://lego.png'), [att]);
-                                           } catch {
-                                             return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not legofy image. Try a different URL.'));
-                                           }
-                                         }
+  // Lazy-load voice dependencies
+  let joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, StreamType;
+  try {
+    const voice = require('@discordjs/voice');
+    joinVoiceChannel = voice.joinVoiceChannel;
+    createAudioPlayer = voice.createAudioPlayer;
+    createAudioResource = voice.createAudioResource;
+    AudioPlayerStatus = voice.AudioPlayerStatus;
+    StreamType = voice.StreamType;
+  } catch {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Dependency').setDescription('Install `@discordjs/voice` and `ffmpeg-static` to use this feature.\nRun: `npm install @discordjs/voice ffmpeg-static`'));
+  }
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 28. MAKEGIF (video to GIF)
-                                         // ══════════════════════════════════════════════════════════
-                                         async function handleMakegif(ctx, args) {
-                                           const url = args[0];
-                                           if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,makegif <video-url> [quality] [fps] [fastforward]`'));
-                                           const quality = parseInt(args[1]) || 10;
-                                           const fps = parseInt(args[2]) || 15;
-                                           const fast = args[3]?.toLowerCase() === 'fast' || args[3]?.toLowerCase() === 'true';
-                                           try {
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('MakeGIF')
-                                               .setDescription(`Converting video to GIF...\n**Quality:** ${quality}\n**FPS:** ${fps}\n**Fast Forward:** ${fast ? 'Yes' : 'No'}`)
-                                               .setFooter({ text: 'Use an external converter API or ffmpeg for full implementation' }));
-                                           } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not convert video.')); }
-                                         }
+  try {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${speaker}&client=tw-ob`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    if (!res.ok || res.headers.get('content-type')?.includes('text/html')) throw new Error('Google TTS blocked');
+    const buffer = Buffer.from(await res.arrayBuffer());
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 29. TRANSPARENT (remove background)
-                                         // ══════════════════════════════════════════════════════════
-                                         async function handleTransparent(ctx, args) {
-                                           const url = args[0];
-                                           if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,transparent <image-url>`'));
-                                           try {
-                                             const apiUrl = `https://api.remove.bg/v1.0/removebg?image_url=${encodeURIComponent(url)}`;
-                                             const res = await fetch(apiUrl, { headers: { 'X-Api-Key': process.env.REMOVEBG_API_KEY || '' }, signal: AbortSignal.timeout(20000) });
-                                             if (!res.ok) throw new Error('API failed');
-                                             const buffer = Buffer.from(await res.arrayBuffer());
-                                             const att = new AttachmentBuilder(buffer, { name: 'transparent.png' });
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('Background Removed').setImage('attachment://transparent.png'), [att]);
-                                           } catch {
-                                             return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not remove background. Add `REMOVEBG_API_KEY` to `.env` or try a different image.'));
-                                           }
-                                         }
+    const connection = joinVoiceChannel({ channelId: vc.id, guildId: ctx.guild.id, adapterCreator: ctx.guild.voiceAdapterCreator });
+    const player = createAudioPlayer();
+    const resource = createAudioResource(Readable.from([buffer]), { inputType: StreamType.Arbitrary });
+    player.play(resource);
+    connection.subscribe(player);
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 30. WOLFRAM
-                                         // ══════════════════════════════════════════════════════════
-                                         async function handleWolfram(ctx, args) {
-                                           const query = args.join(' ').trim();
-                                           if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Query').setDescription('Usage: `,wolfram <query>`'));
-                                           const API_KEY = process.env.WOLFRAM_API_KEY;
-                                           if (!API_KEY) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `WOLFRAM_API_KEY` to your `.env` file.\nGet one at https://products.wolframalpha.com/api/'));
-                                           try {
-                                             const data = await jsonFetch(`https://api.wolframalpha.com/v2/query?input=${encodeURIComponent(query)}&format=plaintext&output=JSON&appid=${API_KEY}`);
-                                             const pods = data.queryresult?.pods;
-                                             if (!pods?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('No Results').setDescription('WolframAlpha could not answer that query.'));
-                                             const embed = base(COLORS.primary).setTitle(`Wolfram: ${query}`).setFooter({ text: 'Powered by WolframAlpha' });
-                                             for (const pod of pods.slice(0, 4)) {
-                                               const text = pod.subpods?.map(s => s.plaintext).filter(Boolean).join('\n') || 'N/A';
-                                               if (text && text !== 'N/A') embed.addFields({ name: pod.title, value: text.slice(0, 1024), inline: false });
-                                             }
-                                             return replyEmbed(ctx, embed);
-                                           } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not query WolframAlpha.')); }
-                                         }
+    player.on(AudioPlayerStatus.Idle, () => { connection.destroy(); });
+    player.on('error', (err) => { console.error('TTS player error:', err); connection.destroy(); });
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 31-38. JUUL SYSTEM
-                                         // ══════════════════════════════════════════════════════════
-                                         function getJuulDb(guildId) {
-                                           const db = getGuildDb(guildId);
-                                           if (!db.data.juul) db.data.juul = { owner: null, flavor: 'Mango', hits: 0, active: true, passes: 0, stolen: 0 };
-                                           return db.data.juul;
-                                         }
+    return replyEmbed(ctx, base(COLORS.success).setTitle('Speaking').setDescription(`Speaking in **${vc.name}**...`));
+  } catch (err) {
+    console.error('TTS channel error:', err);
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription(`Could not speak in voice channel.\n**Reason:** ${err.message || 'Unknown error'}`));
+  }
+}
 
-                                         async function handleJuul(ctx, args) {
-                                           const sub = args[0]?.toLowerCase();
-                                           const guildId = ctx.guild.id;
-                                           const juul = getJuulDb(guildId);
-                                           const isInteraction = !!ctx.deferReply;
-                                           const user = isInteraction ? ctx.user : ctx.author;
+// ══════════════════════════════════════════════════════════
+// 27. LEGO (Legofy image)
+// ══════════════════════════════════════════════════════════
+async function handleLego(ctx, args) {
+  const url = args[0];
+  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,lego <image-url>`'));
+  try {
+    const apiUrl = `https://legoify.vercel.app/api/legoify?url=${encodeURIComponent(url)}`;
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error('API failed');
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const att = new AttachmentBuilder(buffer, { name: 'lego.png' });
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('Legofied').setImage('attachment://lego.png'), [att]);
+  } catch {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not legofy image. Try a different URL.'));
+  }
+}
 
-                                           if (sub === 'hit') {
-                                             if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
-                                             juul.hits = (juul.hits || 0) + 1;
-                                             getGuildDb(guildId)._save();
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('Juul Hit').setDescription(`**${user.username}** takes a hit of **${juul.flavor}** 🌬️\nTotal hits: **${juul.hits}**`));
-                                           }
+// ══════════════════════════════════════════════════════════
+// 28. MAKEGIF (video to GIF) — STUB / NOT IMPLEMENTED
+// ══════════════════════════════════════════════════════════
+async function handleMakegif(ctx, args) {
+  const url = args[0];
+  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,makegif <video-url> [quality] [fps] [fastforward]`'));
+  return replyEmbed(ctx, base(COLORS.warning).setTitle('MakeGIF')
+    .setDescription('This command requires a video-to-GIF conversion service or ffmpeg setup.\n\n**To enable:**\n1. Install ffmpeg: `npm install ffmpeg-static`\n2. Use an API like CloudConvert or implement local ffmpeg processing.\n\nThis is currently a placeholder.'));
+}
 
-                                           if (sub === 'pass') {
-                                             const target = isInteraction ? ctx.options?.getUser?.('user') : ctx.mentions?.users?.first();
-                                             if (!target) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing User').setDescription('Usage: `,juul pass <@user>`'));
-                                             if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
-                                             juul.passes = (juul.passes || 0) + 1;
-                                             juul.owner = target.id;
-                                             getGuildDb(guildId)._save();
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('Juul Passed').setDescription(`**${user.username}** passes the juul to **${target.username}** 🔄\nFlavor: **${juul.flavor}**`));
-                                           }
+// ══════════════════════════════════════════════════════════
+// 29. TRANSPARENT (remove background)
+// ══════════════════════════════════════════════════════════
+async function handleTransparent(ctx, args) {
+  const url = args[0];
+  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,transparent <image-url>`'));
+  const key = API_KEYS.REMOVEBG_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `REMOVEBG_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://www.remove.bg/'));
+  try {
+    const res = await fetch(`https://api.remove.bg/v1.0/removebg?image_url=${encodeURIComponent(url)}`, {
+      headers: { 'X-Api-Key': key },
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      let errMsg = `HTTP ${res.status}`;
+      try {
+        const errJson = JSON.parse(errText);
+        errMsg = errJson.errors?.[0]?.title || errJson.error || errMsg;
+      } catch {}
+      throw new Error(errMsg);
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const att = new AttachmentBuilder(buffer, { name: 'transparent.png' });
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('Background Removed').setImage('attachment://transparent.png'), [att]);
+  } catch (err) {
+    console.error('Transparent error:', err);
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription(`Could not remove background.\n**Reason:** ${err.message || 'Unknown error'}\n\nMake sure your Remove.bg API key is valid and the image URL is accessible.`));
+  }
+}
 
-                                           if (sub === 'toggle') {
-                                             if (!ctx.member.permissions.has(PermissionFlagsBits.ManageGuild)) return replyEmbed(ctx, base(COLORS.error).setTitle('Permission Denied').setDescription('You need **Manage Server** permission.'));
-                                             juul.active = !juul.active;
-                                             getGuildDb(guildId)._save();
-                                             return replyEmbed(ctx, base(COLORS.success).setTitle('Juul Toggled').setDescription(`Server juul is now **${juul.active ? 'ON' : 'OFF'}**`));
-                                           }
+// ══════════════════════════════════════════════════════════
+// 30. WOLFRAM
+// ══════════════════════════════════════════════════════════
+async function handleWolfram(ctx, args) {
+  const query = args.join(' ').trim();
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Query').setDescription('Usage: `,wolfram <query>`'));
+  const key = API_KEYS.WOLFRAM_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `WOLFRAM_API_KEY` to `config/apikeys.js` or your `.env` file.\nGet one at https://products.wolframalpha.com/api/'));
+  try {
+    const data = await jsonFetch(`https://api.wolframalpha.com/v2/query?input=${encodeURIComponent(query)}&format=plaintext&output=JSON&appid=${key}`);
+    const pods = data.queryresult?.pods;
+    if (!pods?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('No Results').setDescription('WolframAlpha could not answer that query.'));
+    const embed = base(COLORS.primary).setTitle(`Wolfram: ${query}`).setFooter({ text: 'Powered by WolframAlpha' });
+    for (const pod of pods.slice(0, 4)) {
+      const text = pod.subpods?.map(s => s.plaintext).filter(Boolean).join('\n') || 'N/A';
+      if (text && text !== 'N/A') embed.addFields({ name: pod.title, value: text.slice(0, 1024), inline: false });
+    }
+    return replyEmbed(ctx, embed);
+  } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not query WolframAlpha.')); }
+}
 
-                                           if (sub === 'stats') {
-                                             const owner = juul.owner ? await ctx.client.users.fetch(juul.owner).catch(() => null) : null;
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('Server Juul Stats')
-                                               .addFields(
-                                                 { name: 'Flavor', value: juul.flavor || 'Mango', inline: true },
-                                                 { name: 'Status', value: juul.active ? 'On' : 'Off', inline: true },
-                                                 { name: 'Owner', value: owner ? owner.username : 'None', inline: true },
-                                                 { name: 'Hits', value: (juul.hits || 0).toString(), inline: true },
-                                                 { name: 'Passes', value: (juul.passes || 0).toString(), inline: true },
-                                                 { name: 'Stolen', value: (juul.stolen || 0).toString(), inline: true }
-                                               ));
-                                           }
+// ══════════════════════════════════════════════════════════
+// 31-38. JUUL SYSTEM
+// ══════════════════════════════════════════════════════════
+function getJuulDb(guildId) {
+  const db = getGuildDb(guildId);
+  if (!db.data.juul) db.data.juul = { owner: null, flavor: 'Mango', hits: 0, active: true, passes: 0, stolen: 0 };
+  return db.data.juul;
+}
 
-                                           if (sub === 'flavor') {
-                                             if (!ctx.member.permissions.has(PermissionFlagsBits.ManageGuild)) return replyEmbed(ctx, base(COLORS.error).setTitle('Permission Denied').setDescription('You need **Manage Server** permission.'));
-                                             const flavor = args.slice(1).join(' ');
-                                             if (!flavor) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Flavor').setDescription('Usage: `,juul flavor <flavor>`'));
-                                             juul.flavor = flavor;
-                                             getGuildDb(guildId)._save();
-                                             return replyEmbed(ctx, base(COLORS.success).setTitle('Flavor Changed').setDescription(`Server juul flavor is now **${flavor}**`));
-                                           }
+async function handleJuul(ctx, args) {
+  const sub = args[0]?.toLowerCase();
+  const guildId = ctx.guild.id;
+  const juul = getJuulDb(guildId);
+  const isInteraction = !!ctx.deferReply;
+  const user = isInteraction ? ctx.user : ctx.author;
 
-                                           if (sub === 'steal') {
-                                             if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
-                                             const prevOwner = juul.owner ? await ctx.client.users.fetch(juul.owner).catch(() => null) : null;
-                                             juul.owner = user.id;
-                                             juul.stolen = (juul.stolen || 0) + 1;
-                                             getGuildDb(guildId)._save();
-                                             return replyEmbed(ctx, base(COLORS.primary).setTitle('Juul Stolen').setDescription(`**${user.username}** steals the juul${prevOwner ? ` from **${prevOwner.username}**` : ''}! 🏃\nFlavor: **${juul.flavor}**`));
-                                           }
+  if (sub === 'hit') {
+    if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
+    juul.hits = (juul.hits || 0) + 1;
+    getGuildDb(guildId)._save();
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('Juul Hit').setDescription(`**${user.username}** takes a hit of **${juul.flavor}** 🌬️\nTotal hits: **${juul.hits}**`));
+  }
 
-                                           // Default: share
-                                           if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
-                                           return replyEmbed(ctx, base(COLORS.primary).setTitle('Share a Juul').setDescription(`**${user.username}** shares the **${juul.flavor}** juul with everyone! 🌬️`));
-                                         }
+  if (sub === 'pass') {
+    const target = isInteraction ? ctx.options?.getUser?.('user') : ctx.mentions?.users?.first();
+    if (!target) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing User').setDescription('Usage: `,juul pass <@user>`'));
+    if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
+    juul.passes = (juul.passes || 0) + 1;
+    juul.owner = target.id;
+    getGuildDb(guildId)._save();
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('Juul Passed').setDescription(`**${user.username}** passes the juul to **${target.username}** 🔄\nFlavor: **${juul.flavor}**`));
+  }
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // 39-50. EXTRA PREMIUM COMMANDS (fillers to reach 50)
-                                         // ══════════════════════════════════════════════════════════
-                                         async function handleMovieExpand(ctx, args) {
-                                           const query = args.join(' ').trim();
-                                           if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Title').setDescription('Usage: `,movieexpand <title>`'));
-                                           return handleMovie(ctx, args);
-                                         }
+  if (sub === 'toggle') {
+    if (!ctx.member.permissions.has(PermissionFlagsBits.ManageGuild)) return replyEmbed(ctx, base(COLORS.error).setTitle('Permission Denied').setDescription('You need **Manage Server** permission.'));
+    juul.active = !juul.active;
+    getGuildDb(guildId)._save();
+    return replyEmbed(ctx, base(COLORS.success).setTitle('Juul Toggled').setDescription(`Server juul is now **${juul.active ? 'ON' : 'OFF'}**`));
+  }
 
-                                         async function handleTtsChannelAlias(ctx, args) { return handleTtsChannel(ctx, args); }
+  if (sub === 'stats') {
+    const owner = juul.owner ? await ctx.client.users.fetch(juul.owner).catch(() => null) : null;
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('Server Juul Stats')
+      .addFields(
+        { name: 'Flavor', value: juul.flavor || 'Mango', inline: true },
+        { name: 'Status', value: juul.active ? 'On' : 'Off', inline: true },
+        { name: 'Owner', value: owner ? owner.username : 'None', inline: true },
+        { name: 'Hits', value: (juul.hits || 0).toString(), inline: true },
+        { name: 'Passes', value: (juul.passes || 0).toString(), inline: true },
+        { name: 'Stolen', value: (juul.stolen || 0).toString(), inline: true }
+      ));
+  }
 
-                                         async function handleJuulHit(ctx, args) { return handleJuul(ctx, ['hit', ...args]); }
-                                         async function handleJuulPass(ctx, args) {
-                                           const isInteraction = !!ctx.deferReply;
-                                           const target = isInteraction ? ctx.options?.getUser?.('user') : ctx.mentions?.users?.first();
-                                           return handleJuul(ctx, ['pass', target?.id, ...args]);
-                                         }
-                                         async function handleJuulToggle(ctx, args) { return handleJuul(ctx, ['toggle', ...args]); }
-                                         async function handleJuulStats(ctx, args) { return handleJuul(ctx, ['stats', ...args]); }
-                                         async function handleJuulFlavor(ctx, args) { return handleJuul(ctx, ['flavor', ...args]); }
-                                         async function handleJuulSteal(ctx, args) { return handleJuul(ctx, ['steal', ...args]); }
+  if (sub === 'flavor') {
+    if (!ctx.member.permissions.has(PermissionFlagsBits.ManageGuild)) return replyEmbed(ctx, base(COLORS.error).setTitle('Permission Denied').setDescription('You need **Manage Server** permission.'));
+    const flavor = args.slice(1).join(' ');
+    if (!flavor) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Flavor').setDescription('Usage: `,juul flavor <flavor>`'));
+    juul.flavor = flavor;
+    getGuildDb(guildId)._save();
+    return replyEmbed(ctx, base(COLORS.success).setTitle('Flavor Changed').setDescription(`Server juul flavor is now **${flavor}**`));
+  }
 
-                                         // ══════════════════════════════════════════════════════════
-                                         // EXPORTS\n// ══════════════════════════════════════════════════════════
-                                         module.exports = {
-                                           lyrics: handleLyrics,
-                                           duckduckgo: handleDuckDuckGo,
-                                           blacktea: handleBlacktea,
-                                           quote: handleQuote,
-                                           tictactoe: handleTicTacToe,
-                                           google: handleGoogle,
-                                           giphy: handleGiphy,
-                                           tenor: handleTenor,
-                                           steal: handleSteal,
-                                           duckduckgoimage: handleDuckDuckGoImage,
-                                           reverseimage: handleReverseImage,
-                                           image: handleImage,
-                                           book: handleBook,
-                                           manga: handleManga,
-                                           anime: handleAnime,
-                                           character: handleCharacter,
-                                           tone: handleTone,
-                                           tags: handleTags,
-                                           tvshow: handleTvshow,
-                                           game: handleGame,
-                                           movie: handleMovie,
-                                           movieexpand: handleMovieExpand,
-                                           ocr: handleOcr,
-                                           ocrtr: handleOcrtr,
-                                           translate: handleTranslate,
-                                           tts: handleTts,
-                                           ttschannel: handleTtsChannel,
-                                           lego: handleLego,
-                                           makegif: handleMakegif,
-                                           transparent: handleTransparent,
-                                           wolfram: handleWolfram,
-                                           juul: handleJuul,
-                                           'juul hit': handleJuulHit,
-                                           'juul pass': handleJuulPass,
-                                           'juul toggle': handleJuulToggle,
-                                           'juul stats': handleJuulStats,
-                                           'juul flavor': handleJuulFlavor,
-                                           'juul steal': handleJuulSteal,
-                                         };
+  if (sub === 'steal') {
+    if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
+    const prevOwner = juul.owner ? await ctx.client.users.fetch(juul.owner).catch(() => null) : null;
+    juul.owner = user.id;
+    juul.stolen = (juul.stolen || 0) + 1;
+    getGuildDb(guildId)._save();
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('Juul Stolen').setDescription(`**${user.username}** steals the juul${prevOwner ? ` from **${prevOwner.username}**` : ''}! 🏃\nFlavor: **${juul.flavor}**`));
+  }
+
+  // Default: share
+  if (!juul.active) return replyEmbed(ctx, base(COLORS.error).setTitle('Juul Off').setDescription('The server juul is currently turned off.'));
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('Share a Juul').setDescription(`**${user.username}** shares the **${juul.flavor}** juul with everyone! 🌬️`));
+}
+
+// ══════════════════════════════════════════════════════════
+// 39-50. EXTRA PREMIUM COMMANDS (fillers to reach 50)
+// ══════════════════════════════════════════════════════════
+async function handleMovieExpand(ctx, args) {
+  const query = args.join(' ').trim();
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Title').setDescription('Usage: `,movieexpand <title>`'));
+  return handleMovie(ctx, args);
+}
+
+async function handleTtsChannelAlias(ctx, args) { return handleTtsChannel(ctx, args); }
+async function handleJuulHit(ctx, args) { return handleJuul(ctx, ['hit', ...args]); }
+async function handleJuulPass(ctx, args) {
+  const isInteraction = !!ctx.deferReply;
+  const target = isInteraction ? ctx.options?.getUser?.('user') : ctx.mentions?.users?.first();
+  return handleJuul(ctx, ['pass', target?.id, ...args]);
+}
+async function handleJuulToggle(ctx, args) { return handleJuul(ctx, ['toggle', ...args]); }
+async function handleJuulStats(ctx, args) { return handleJuul(ctx, ['stats', ...args]); }
+async function handleJuulFlavor(ctx, args) { return handleJuul(ctx, ['flavor', ...args]); }
+async function handleJuulSteal(ctx, args) { return handleJuul(ctx, ['steal', ...args]); }
+
+// ══════════════════════════════════════════════════════════
+// EXPORTS
+// ══════════════════════════════════════════════════════════
+module.exports = {
+  lyrics: handleLyrics,
+  duckduckgo: handleDuckDuckGo,
+  blacktea: handleBlacktea,
+  quote: handleQuote,
+  tictactoe: handleTicTacToe,
+  google: handleGoogle,
+  giphy: handleGiphy,
+  tenor: handleTenor,
+  steal: handleSteal,
+  duckduckgoimage: handleDuckDuckGoImage,
+  reverseimage: handleReverseImage,
+  image: handleImage,
+  book: handleBook,
+  manga: handleManga,
+  anime: handleAnime,
+  character: handleCharacter,
+  tone: handleTone,
+  tags: handleTags,
+  tvshow: handleTvshow,
+  game: handleGame,
+  movie: handleMovie,
+  movieexpand: handleMovieExpand,
+  ocr: handleOcr,
+  ocrtr: handleOcrtr,
+  translate: handleTranslate,
+  tts: handleTts,
+  ttschannel: handleTtsChannel,
+  lego: handleLego,
+  makegif: handleMakegif,
+  transparent: handleTransparent,
+  wolfram: handleWolfram,
+  juul: handleJuul,
+  'juul hit': handleJuulHit,
+  'juul pass': handleJuulPass,
+  'juul toggle': handleJuulToggle,
+  'juul stats': handleJuulStats,
+  'juul flavor': handleJuulFlavor,
+  'juul steal': handleJuulSteal,
+};

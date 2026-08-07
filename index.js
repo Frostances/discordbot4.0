@@ -1,5 +1,5 @@
 // Load .env only when running locally; Replit injects secrets as real env vars
-require('dotenv').config();
+try { require('dotenv').config(); } catch {} // Replit doesn't need dotenv
 const {
     Client, GatewayIntentBits, EmbedBuilder,
     ActionRowBuilder, ButtonBuilder, ButtonStyle,
@@ -90,6 +90,7 @@ const { handleModerationCommand,
 const { restoreNukeSchedules }                           = require('./modules/nuke');
 const { handleRoleplay, ROLEPLAY_COMMANDS }              = require('./modules/roleplay');
 const funCommands = require('./modules/funCommands');
+const { handleBlackteaCommand, handleBlackteaMessage, handleBlackteaSlash, initBlacktea } = require('./modules/blacktea');
 
 const funAliases = {
   lyrics: ['lyric', 'lyr'],
@@ -1177,6 +1178,9 @@ client.on('messageCreate', async (message) => {
     const gwGame = activeGuessWordGames.get(message.channel.id);
     if (gwGame?.gameActive) { await gwGame.handleGuess(message, message.content); return; }
 
+    // ── Blacktea in-game guesses ──
+    if (await handleBlackteaMessage(message)) return;
+
      // ── Reaction triggers + auto-reactions ──
      await reactionOnMessageCreate(message).catch(() => {});
 
@@ -1418,6 +1422,11 @@ client.on('messageCreate', async (message) => {
             await message.channel.send({ embeds: [game.getGameStatus()] });
             game.startTimer(message.channel);
             return;
+        }
+
+        // ── Blacktea ──
+        if (command === 'blacktea' || command === 'bt' || command === 'tea') {
+            return handleBlackteaCommand(message, args, client);
         }
 
         // ── Swears ──
@@ -1719,6 +1728,8 @@ client.on('interactionCreate', async (interaction) => {
                 if (sub === 'view')    return handleConfigCommand(interaction, ['view']);
                 if (sub === 'modules') return handleConfigCommand(interaction, ['module', 'list']);
             }
+
+             if (cmd === 'blacktea') return handleBlackteaSlash(interaction, client);
 
              // ── Fun slash commands ──
              const funSlashCommands = [
@@ -2055,6 +2066,7 @@ client.once('clientReady', async () => {
     logger.info('BOT', `Logged in as ${client.user.tag}`);
     loadLegacyData();
     loadDictionary();
+    initBlacktea(dictionary);
     scheduleNewDay();
 
     // custom status

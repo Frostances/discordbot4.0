@@ -1,4 +1,3 @@
-
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, AuditLogEvent } = require('discord.js');
 const { getGuildDb } = require('./database');
 
@@ -37,7 +36,7 @@ const PERM_BITS = {
 };
 
 // ══════════════════════════════════════════════════════════
-// ACTION TRACKER  (10-second window)
+// ACTION TRACKER (10-second window)
 // ══════════════════════════════════════════════════════════
 const actionTracker = new Map(); // key: guildId:userId:type -> { count, first, punished }
 
@@ -121,6 +120,18 @@ function isWhitelisted(cfg, userId, botId = null) {
 }
 
 // ══════════════════════════════════════════════════════════
+// ROLE DELETE CHECK (for roles.js)
+// ══════════════════════════════════════════════════════════
+function isRoleDeleteAllowed(guildId, userId) {
+  const cfg = getAntinukeConfig(guildId);
+  if (!cfg.enabled) return true;
+  const modCfg = getModuleConfig(cfg, 'role');
+  if (!modCfg.enabled) return true;
+  if (isWhitelisted(cfg, userId)) return true;
+  return false;
+}
+
+// ══════════════════════════════════════════════════════════
 // PUNISHMENT ENGINE
 // ══════════════════════════════════════════════════════════
 async function punish(guild, userId, action, type, logChannelId) {
@@ -191,7 +202,10 @@ async function punish(guild, userId, action, type, logChannelId) {
       await owner.send({
         embeds: [new EmbedBuilder()
           .setTitle('🛡️ AntiNuke Alert')
-          .setDescription(`**${guild.name}** — AntiNuke triggered for **${type}**.\nExecutor: <@${userId}> (${userId})\nPunishment: **${action}**\nResult: ${success ? 'Success' : 'Failed'}`)
+          .setDescription(`**${guild.name}** — AntiNuke triggered for **${type}**.
+Executor: <@${userId}> (${userId})
+Punishment: **${action}**
+Result: ${success ? 'Success' : 'Failed'}`)
           .setColor('#FF0000')
           .setTimestamp()]
       }).catch(() => {});
@@ -254,7 +268,7 @@ async function handleAntiNukeTrigger(client, guild, type, executorId, targetBotI
 }
 
 // ══════════════════════════════════════════════════════════
-// COMMAND DETECTION  (called from index.js before moderation cmds)
+// COMMAND DETECTION (called from index.js before moderation cmds)
 // ══════════════════════════════════════════════════════════
 async function trackCommandAction(message, commandType) {
   if (!message.guild) return;
@@ -287,7 +301,7 @@ async function trackCommandAction(message, commandType) {
 }
 
 // ══════════════════════════════════════════════════════════
-// FLAG PARSER  (--threshold 3 --do ban --command on)
+// FLAG PARSER (--threshold 3 --do ban --command on)
 // ══════════════════════════════════════════════════════════
 function parseFlags(args) {
   const flags = {};
@@ -456,7 +470,7 @@ async function handleAntiNukeCommand(message, args) {
         .addFields(
           { name: 'Punishment', value: `**${cfg.permWatchPunishment || 'strip'}**`, inline: false }
         )
-        .setFooter({ text: 'Use ,antinuke permissions grant <perm> | remove <perm> | punishment <ban/kick/strip>' });
+        .setFooter({ text: 'Use ,antinuke permissions grant <perm> | remove <perm> | punishment <action>' });
 
       return message.reply({ embeds: [embed] });
     }
@@ -477,7 +491,7 @@ async function handleAntiNukeCommand(message, args) {
 
     // Grant / remove toggle mode
     if (!['grant', 'remove'].includes(action)) {
-      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Usage: `,antinuke permissions list` | `grant <perm>` | `remove <perm>` | `punishment <ban/kick/strip>`').setColor('#F04747')] });
+      return message.reply({ embeds: [new EmbedBuilder().setDescription('❌ Usage: `,antinuke permissions list` | `grant <perm>` | `remove <perm>` | `punishment <action>`').setColor('#F04747')] });
     }
 
     if (!await isOwnerOrAdmin(message)) {
@@ -585,13 +599,20 @@ async function sendConfig(message) {
   embed.addFields({
     name: 'General',
     value:
-      `Super Admins: ${(cfg.admins || []).length}\n` +
-      `Whitelisted Bots: ${whitelistedBots}\n` +
-      `Whitelisted Members: ${whitelistedMembers}\n` +
-      `Protection Modules: ${MODULES.filter(m => getModuleConfig(cfg, m).enabled).length} enabled\n` +
-      `Watch Permission Grant: ${(cfg.permWatch?.grant || []).length}/${DANGEROUS_PERMS.length} perms\n` +
-      `Watch Permission Remove: ${(cfg.permWatch?.remove || []).length}/${DANGEROUS_PERMS.length} perms\n` +
-      `Permission Punishment: ${cfg.permWatchPunishment || 'strip'}\n` +
+      `Super Admins: ${(cfg.admins || []).length}
+` +
+      `Whitelisted Bots: ${whitelistedBots}
+` +
+      `Whitelisted Members: ${whitelistedMembers}
+` +
+      `Protection Modules: ${MODULES.filter(m => getModuleConfig(cfg, m).enabled).length} enabled
+` +
+      `Watch Permission Grant: ${(cfg.permWatch?.grant || []).length}/${DANGEROUS_PERMS.length} perms
+` +
+      `Watch Permission Remove: ${(cfg.permWatch?.remove || []).length}/${DANGEROUS_PERMS.length} perms
+` +
+      `Permission Punishment: ${cfg.permWatchPunishment || 'strip'}
+` +
       `Deny Bot Joins (botadd): ${getModuleConfig(cfg, 'botadd').enabled ? '<:checkmark:1528890895859056680>' : ''}`,
     inline: true
   });
@@ -776,5 +797,9 @@ async function setupAntiNukeListeners(client) {
 module.exports = {
   handleAntiNukeCommand,
   setupAntiNukeListeners,
-  trackCommandAction
+  trackCommandAction,
+  getAntinukeConfig,
+  getModuleConfig,
+  isWhitelisted,
+  isRoleDeleteAllowed
 };

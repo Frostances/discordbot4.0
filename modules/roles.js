@@ -147,7 +147,7 @@ async function handleRole(ctx, args, client) {
   let target = mentions?.members?.first();
 
   // ── Smart role resolution for implied add/remove ──
-  // .role @user @role  OR  .role @user tree  OR  .role @user tr
+  // .role @user @role OR .role @user tree OR .role @user tr
   if (!role && target && args.length >= 2) {
     const roleQuery = args.slice(1).join(' ');
     role = resolveRole(ctx.guild, roleQuery);
@@ -278,6 +278,20 @@ async function handleRole(ctx, args, client) {
   if (sub === 'delete') {
     if (!ctx.member.permissions.has(PermissionFlagsBits.ManageRoles))
       return ctx.reply({ content: '❌ Missing `Manage Roles` permission.' });
+
+    // ── ANTINUKE ROLE DELETE PROTECTION ──
+    try {
+      const { isRoleDeleteAllowed } = require('./antinuke');
+      if (!isRoleDeleteAllowed(ctx.guild.id, ctx.author.id)) {
+        return ctx.reply({
+          embeds: [new EmbedBuilder()
+            .setDescription('❌ This action is blocked by the antinuke system.')
+            .setColor('#F04747')]
+        });
+      }
+    } catch {}
+    // ── END ANTINUKE CHECK ──
+
     if (!role) {
       const roleQuery = args.slice(1).join(' ');
       role = resolveRole(ctx.guild, roleQuery);
@@ -288,7 +302,7 @@ async function handleRole(ctx, args, client) {
     return ctx.reply({ content: `🗑️ Role **${name}** has been deleted.` });
   }
 
-  // ── .role edit @role <newName> ──
+  // ── .role edit @role <newname> ──
   if (sub === 'edit') {
     if (!ctx.member.permissions.has(PermissionFlagsBits.ManageRoles))
       return ctx.reply({ content: '❌ Missing `Manage Roles` permission.' });
@@ -296,9 +310,9 @@ async function handleRole(ctx, args, client) {
       const roleQuery = args[1];
       role = resolveRole(ctx.guild, roleQuery);
     }
-    if (!role) return ctx.reply({ content: '❌ Could not find that role. Usage: `.role edit @role <newName>`' });
+    if (!role) return ctx.reply({ content: '❌ Could not find that role. Usage: `.role edit @role <newname>`' });
     const newName = args.slice(2).filter(a => !a.startsWith('<@')).join(' ');
-    if (!newName) return ctx.reply({ content: '❌ Provide a new name: `.role edit @role <newName>`' });
+    if (!newName) return ctx.reply({ content: '❌ Provide a new name: `.role edit @role <newname>`' });
     const old = role.name;
     await role.setName(newName);
     return ctx.reply({ content: `✏️ Role renamed: **${old}** → **${newName}**` });
@@ -424,7 +438,7 @@ async function handleRole(ctx, args, client) {
       '**Member:**',
       '`.role add @user @role` `.role remove @user @role`',
       '`.role @user @role` (implied toggle)',
-      '`.role @user <roleName>` (smart search)',
+      '`.role @user <rolename>` (smart search)',
       '`.role restore @user`',
       '',
       '**Mass (humans only — never bots):**',
@@ -435,7 +449,7 @@ async function handleRole(ctx, args, client) {
       '',
       '**Manage:**',
       '`.role create <name> [#color]` `.role delete @role`',
-      '`.role edit @role <newName>` `.role color @role #hex`',
+      '`.role edit @role <newname>` `.role color @role #hex`',
       '`.role color gradient @role #hex1 #hex2`',
       '`.role icon @role <url>` *(Boost Level 2 required)*',
       '`.role mentionable @role` `.role hoist @role`',
@@ -510,7 +524,7 @@ async function handleTempRole(ctx, args, client) {
       { name: '👤 User', value: `${target.user}`, inline: true },
       { name: '🎭 Role', value: `<@&${role.id}>`, inline: true },
       { name: '⏱️ Duration', value: formatDuration(duration), inline: true },
-      { name: '⌛ Expires', value: `<t:${Math.floor(expires / 1000)}:R>` },
+      { name: '⌛ Expires', value: `<t:${Math.floor(expires / 1000)}:R>`, inline: true },
       { name: '📝 Reason', value: reason },
     )] });
 }

@@ -64,12 +64,54 @@ function replyEmbed(ctx, embed, files = []) {
   return ctx.channel.send(payload);
 }
 
+// Extract image URL from command args, replied message, or referenced message
+async function resolveImageUrl(ctx, args) {
+  // 1. Check args for a direct URL
+  const urlArg = args.find(a => /^https?:\/\//.test(a));
+  if (urlArg) return urlArg;
+
+  // 2. Check if this is a reply to a message with an image
+  const referenced = ctx.reference || ctx.message?.reference;
+  if (referenced?.messageId) {
+    try {
+      const refMsg = await ctx.channel.messages.fetch(referenced.messageId);
+      const imgAtt = refMsg.attachments.find(a => a.contentType?.startsWith('image/') || a.contentType?.startsWith('video/') || /\.(png|jpe?g|gif|webp|mp4|mov|webm)(\?|$)/i.test(a.url));
+      if (imgAtt) return imgAtt.url;
+      const imgEmbed = refMsg.embeds.find(e => e.image?.url || e.thumbnail?.url);
+      if (imgEmbed) return imgEmbed.image?.url || imgEmbed.thumbnail?.url;
+    } catch {}
+  }
+
+  // 3. Check if command message itself has attachments
+  const msg = ctx.message || ctx;
+  if (msg?.attachments?.size > 0) {
+    const imgAtt = msg.attachments.find(a => a.contentType?.startsWith('image/') || a.contentType?.startsWith('video/') || /\.(png|jpe?g|gif|webp|mp4|mov|webm)(\?|$)/i.test(a.url));
+    if (imgAtt) return imgAtt.url;
+  }
+
+  // 4. Check last few messages in channel for images
+  try {
+    const messages = await ctx.channel.messages.fetch({ limit: 10 });
+    for (const m of messages.values()) {
+      if (m.id === ctx.id || m.id === ctx.message?.id) continue;
+      const imgAtt = m.attachments.find(a => a.contentType?.startsWith('image/') || a.contentType?.startsWith('video/') || /\.(png|jpe?g|gif|webp|mp4|mov|webm)(\?|$)/i.test(a.url));
+      if (imgAtt) return imgAtt.url;
+      const imgEmbed = m.embeds.find(e => e.image?.url || e.thumbnail?.url);
+      if (imgEmbed) return imgEmbed.image?.url || imgEmbed.thumbnail?.url;
+    }
+  } catch {}
+
+  return null;
+}
+
 // ══════════════════════════════════════════════════════════
 // 1. LYRICS
 // ══════════════════════════════════════════════════════════
 async function handleLyrics(ctx, args) {
   const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,lyrics <artist - song>` or `,lyrics <song>`'));
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,lyrics <artist> - <song>` or `,lyrics <song>`'));
+
+  // Try lyrist API first (most reliable)
   try {
     let artist = query, title = query;
     if (query.includes(' - ')) { [artist, title] = query.split(' - ').map(s => s.trim()); }
@@ -79,7 +121,9 @@ async function handleLyrics(ctx, args) {
         .setDescription(data.lyrics.length > 4000 ? data.lyrics.slice(0, 4000) + '...' : data.lyrics)
         .setFooter({ text: 'Powered by Lyrist' }));
     }
-  } catch {}
+  } catch (e) { console.log('[Lyrics] Lyrist failed:', e.message); }
+
+  // Fallback to lyrics.ovh
   try {
     const [artist, title] = query.includes(' - ') ? query.split(' - ').map(s => s.trim()) : [query, query];
     const data = await jsonFetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
@@ -88,8 +132,23 @@ async function handleLyrics(ctx, args) {
         .setDescription(data.lyrics.length > 4000 ? data.lyrics.slice(0, 4000) + '...' : data.lyrics)
         .setFooter({ text: 'Powered by lyrics.ovh' }));
     }
-  } catch {}
-  return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Not Found').setDescription('Could not find lyrics. Try `artist - song` format.'));
+  } catch (e) { console.log('[Lyrics] lyrics.ovh failed:', e.message); }
+
+  // Final fallback: try lyrics.ovh suggest endpoint
+  try {
+    const data = await jsonFetch(`https://api.lyrics.ovh/suggest/${encodeURIComponent(query)}`);
+    if (data?.data?.length) {
+      const song = data.data[0];
+      const lyricsData = await jsonFetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(song.artist.name)}/${encodeURIComponent(song.title)}`);
+      if (lyricsData?.lyrics) {
+        return replyEmbed(ctx, base(COLORS.primary).setTitle(`🎵 ${song.title} — ${song.artist.name}`)
+          .setDescription(lyricsData.lyrics.length > 4000 ? lyricsData.lyrics.slice(0, 4000) + '...' : lyricsData.lyrics)
+          .setFooter({ text: 'Powered by lyrics.ovh' }));
+      }
+    }
+  } catch (e) { console.log('[Lyrics] suggest failed:', e.message); }
+
+  return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Not Found').setDescription('Could not find lyrics. Try `artist - song` format, e.g. `,lyrics The Weeknd - Blinding Lights`'));
 }
 
 // ══════════════════════════════════════════════════════════
@@ -212,20 +271,99 @@ async function handleQuote(ctx, args) {
     }
   } catch {}
   if (!targetMsg) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Message Not Found')
-    .setDescription('Provide a message link, message ID, or mention a user.\nUsage: `,quote <link/id/@user>`'));
-  const embed = base(COLORS.primary)
-    .setAuthor({ name: targetMsg.author.tag, iconURL: targetMsg.author.displayAvatarURL() })
-    .setDescription(targetMsg.content || '*No text content*')
-    .setTimestamp(targetMsg.createdTimestamp)
-    .setFooter({ text: `#${targetMsg.channel.name}` });
-  if (targetMsg.attachments.size > 0) {
-    const img = targetMsg.attachments.find(a => a.contentType?.startsWith('image/'));
-    if (img) embed.setImage(img.url);
+    .setDescription('Provide a message link, message ID, or mention a user.\nUsage: `,quote <message-link>`'));
+
+  // Try to generate image with Canvas
+  let canvas, Canvas;
+  try {
+    Canvas = require('@napi-rs/canvas');
+    canvas = Canvas.createCanvas(1200, 630);
+  } catch {
+    // Fallback to embed
+    const embed = base(COLORS.primary)
+      .setAuthor({ name: targetMsg.author.tag, iconURL: targetMsg.author.displayAvatarURL() })
+      .setDescription(targetMsg.content || '*No text content*')
+      .setTimestamp(targetMsg.createdTimestamp)
+      .setFooter({ text: `#${targetMsg.channel.name}` });
+    if (targetMsg.attachments.size > 0) {
+      const img = targetMsg.attachments.find(a => a.contentType?.startsWith('image/'));
+      if (img) embed.setImage(img.url);
+    }
+    return replyEmbed(ctx, embed);
   }
-  return replyEmbed(ctx, embed);
+
+  const ctx2d = canvas.getContext('2d');
+
+  // Dark background
+  ctx2d.fillStyle = '#0a0a0a';
+  ctx2d.fillRect(0, 0, 1200, 630);
+
+  // Add a subtle gradient overlay
+  const gradient = ctx2d.createLinearGradient(0, 0, 1200, 630);
+  gradient.addColorStop(0, 'rgba(20, 20, 30, 0.8)');
+  gradient.addColorStop(1, 'rgba(10, 10, 20, 0.95)');
+  ctx2d.fillStyle = gradient;
+  ctx2d.fillRect(0, 0, 1200, 630);
+
+  // Draw avatar (circular clip)
+  try {
+    const avatarUrl = targetMsg.author.displayAvatarURL({ format: 'png', size: 256 });
+    const avatarImg = await Canvas.loadImage(avatarUrl);
+    const avatarSize = 80;
+    const avatarX = 80;
+    const avatarY = 80;
+
+    ctx2d.save();
+    ctx2d.beginPath();
+    ctx2d.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+    ctx2d.closePath();
+    ctx2d.clip();
+    ctx2d.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
+    ctx2d.restore();
+  } catch {}
+
+  // Draw author name
+  ctx2d.fillStyle = '#ffffff';
+  ctx2d.font = 'bold 36px sans-serif';
+  ctx2d.fillText(targetMsg.author.username, 180, 125);
+
+  // Draw message content (word wrap)
+  ctx2d.fillStyle = '#e0e0e0';
+  ctx2d.font = '32px sans-serif';
+  const text = targetMsg.content || '*No text content*';
+  const maxWidth = 1000;
+  const lineHeight = 45;
+  const x = 80;
+  let y = 220;
+
+  const words = text.split(' ');
+  let line = '';
+  for (const word of words) {
+    const testLine = line + word + ' ';
+    const metrics = ctx2d.measureText(testLine);
+    if (metrics.width > maxWidth && line !== '') {
+      ctx2d.fillText(line, x, y);
+      line = word + ' ';
+      y += lineHeight;
+      if (y > 500) break;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx2d.fillText(line, x, y);
+
+  // Draw timestamp
+  ctx2d.fillStyle = '#888888';
+  ctx2d.font = '20px sans-serif';
+  const date = targetMsg.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  ctx2d.fillText(`- ${targetMsg.author.username}  •  ${date}`, 80, 580);
+
+  // Convert to buffer and send
+  const buffer = await canvas.encode('png');
+  const att = new AttachmentBuilder(buffer, { name: 'quote.png' });
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('Quote').setImage('attachment://quote.png'), [att]);
 }
 
-// ══════════════════════════════════════════════════════════
 // 5. TIC-TAC-TOE (with stats & leaderboard)
 // ══════════════════════════════════════════════════════════
 const TTT_WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -390,25 +528,31 @@ async function handleTicTacToe(ctx, args) {
 }
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // 6. GOOGLE SEARCH
 // ══════════════════════════════════════════════════════════
 async function handleGoogle(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,google <query>`'));
   const key = API_KEYS.GOOGLE_API_KEY, cx = API_KEYS.GOOGLE_CX;
-  if (key && cx) {
-    try {
-      const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}`);
-      if (data.items?.length) {
-        const results = data.items.slice(0, 5).map((item, i) => `**${i + 1}.** [${item.title}](${item.link})\n${item.snippet?.slice(0, 120) || ''}...`);
-        return replyEmbed(ctx, base(COLORS.primary).setTitle(`🔍 Google: ${query}`).setDescription(results.join('\n\n')).setFooter({ text: 'Google Custom Search' }));
-      }
-    } catch {}
+  if (!key || !cx) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Keys Missing')
+      .setDescription('Add `GOOGLE_API_KEY` and `GOOGLE_CX` to `config/apikeys.js`.\nGet them at https://developers.google.com/custom-search/v1/overview'));
   }
-  return handleDuckDuckGo(ctx, args);
+  try {
+    const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}`);
+    if (data.items?.length) {
+      const results = data.items.slice(0, 5).map((item, i) => `**${i + 1}.** [${item.title}](${item.link})\n${item.snippet?.slice(0, 120) || ''}...`);
+      return replyEmbed(ctx, base(COLORS.primary).setTitle(`🔍 Google: ${query}`).setDescription(results.join('\n\n')).setFooter({ text: 'Google Custom Search' }));
+    }
+    return replyEmbed(ctx, base(COLORS.warning).setTitle('🔍 No Results').setDescription('Google found no results for that query.'));
+  } catch (err) {
+    console.error('[Google] Error:', err.message);
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Google Search Failed')
+      .setDescription(`**Reason:** ${err.message}\n\nMake sure your API key and Search Engine ID are valid.`));
+  }
 }
 
-// ══════════════════════════════════════════════════════════
 // 7. GIPHY
 // ══════════════════════════════════════════════════════════
 async function handleGiphy(ctx, args) {
@@ -495,8 +639,8 @@ async function handleDuckDuckGoImage(ctx, args) {
 // 11. REVERSE IMAGE
 // ══════════════════════════════════════════════════════════
 async function handleReverseImage(ctx, args) {
-  const url = args[0];
-  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,reverseimage <url>`'));
+  const url = await resolveImageUrl(ctx, args);
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,reverseimage <image-url>` or reply to a message with an image.'));
   return replyEmbed(ctx, base(COLORS.primary).setTitle('🔍 Reverse Image Search')
     .setDescription(`[Search on Google Lens](https://lens.google.com/uploadbyurl?url=${encodeURIComponent(url)})\n[Search on TinEye](https://tineye.com/search?url=${encodeURIComponent(url)})\n[Search on Yandex](https://yandex.com/images/search?url=${encodeURIComponent(url)}&rpt=imageview)`)
     .setImage(url).setFooter({ text: 'Click a link above to view results' }));
@@ -509,18 +653,23 @@ async function handleImage(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,image <query>`'));
   const key = API_KEYS.GOOGLE_API_KEY, cx = API_KEYS.GOOGLE_CX;
-  if (key && cx) {
-    try {
-      const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}&searchType=image`);
-      if (data.items?.length) {
-        const img = rand(data.items);
-        return replyEmbed(ctx, base(COLORS.primary).setTitle(`🖼️ Image: ${query}`).setImage(img.link).setFooter({ text: `From: ${img.displayLink || 'Google'}` }));
-      }
-    } catch {}
+  if (!key || !cx) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Keys Missing')
+      .setDescription('Add `GOOGLE_API_KEY` and `GOOGLE_CX` to `config/apikeys.js`.\nGet them at https://developers.google.com/custom-search/v1/overview'));
   }
-  return handleDuckDuckGoImage(ctx, args);
+  try {
+    const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}&searchType=image`);
+    if (data.items?.length) {
+      const img = rand(data.items);
+      return replyEmbed(ctx, base(COLORS.primary).setTitle(`🖼️ Image: ${query}`).setImage(img.link).setFooter({ text: `From: ${img.displayLink || 'Google'}` }));
+    }
+    return replyEmbed(ctx, base(COLORS.warning).setTitle('🖼️ No Results').setDescription('Google found no images for that query.'));
+  } catch (err) {
+    console.error('[Image] Error:', err.message);
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Image Search Failed')
+      .setDescription(`**Reason:** ${err.message}\n\nMake sure your API key and Search Engine ID are valid.`));
+  }
 }
-
 // ══════════════════════════════════════════════════════════
 // 13. BOOK (Open Library)
 // ══════════════════════════════════════════════════════════
@@ -839,8 +988,8 @@ async function handleMovie(ctx, args) {
 // 22. OCR (OCR.space)
 // ══════════════════════════════════════════════════════════
 async function handleOcr(ctx, args) {
-  const url = args[0];
-  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocr <image-url>`'));
+  const url = await resolveImageUrl(ctx, args);
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocr <image-url>` or reply to a message with an image.'));
   const key = API_KEYS.OCR_API_KEY;
   if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js`.\nGet one at https://ocr.space/'));
   try {
@@ -855,9 +1004,9 @@ async function handleOcr(ctx, args) {
 // 23. OCR + TRANSLATE
 // ══════════════════════════════════════════════════════════
 async function handleOcrtr(ctx, args) {
-  const url = args[0];
-  const toLang = args[1] || 'en';
-  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocrtr <image-url> <to-language>`'));
+  const url = await resolveImageUrl(ctx, args);
+  const toLang = args.find(a => /^[a-z]{2}(-[A-Z]{2})?$/.test(a)) || 'en';
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,ocrtr <image-url> [to-language]` or reply to a message with an image.'));
   const key = API_KEYS.OCR_API_KEY;
   if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `OCR_API_KEY` to `config/apikeys.js`.'));
   try {
@@ -881,13 +1030,32 @@ async function handleOcrtr(ctx, args) {
 // ══════════════════════════════════════════════════════════
 async function handleTranslate(ctx, args) {
   let toLang = 'en', fromLang = 'auto', textStart = 0;
-  if (args.length >= 3 && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[0]) && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[1])) {
-    fromLang = args[0]; toLang = args[1]; textStart = 2;
-  } else if (args.length >= 2 && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[0])) {
-    toLang = args[0]; textStart = 1;
+
+  // Check if replying to a message
+  const referenced = ctx.reference || ctx.message?.reference;
+  let text = null;
+
+  if (referenced?.messageId) {
+    try {
+      const refMsg = await ctx.channel.messages.fetch(referenced.messageId);
+      text = refMsg.content;
+      // Check if user specified a language in args
+      if (args.length >= 1 && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[0])) {
+        toLang = args[0];
+      }
+    } catch {}
   }
-  const text = args.slice(textStart).join(' ');
-  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,translate <to-lang> <text>` or `,translate <from-lang> <to-lang> <text>`'));
+
+  if (!text) {
+    if (args.length >= 3 && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[0]) && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[1])) {
+      fromLang = args[0]; toLang = args[1]; textStart = 2;
+    } else if (args.length >= 2 && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[0])) {
+      toLang = args[0]; textStart = 1;
+    }
+    text = args.slice(textStart).join(' ');
+  }
+
+  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,translate <to-lang> <text>` or reply to a message with `,translate <to-lang>`'));
   try {
     const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`);
     const data = await res.json();
@@ -1091,11 +1259,12 @@ async function handleTtsChannel(ctx, args) {
   }
 }
 
+// ══════════════════════════════════════════════════════════
 // 27. LEGO (Legofy image)
 // ══════════════════════════════════════════════════════════
 async function handleLego(ctx, args) {
-  const url = args[0];
-  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,lego <image-url>`'));
+  const url = await resolveImageUrl(ctx, args);
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,lego <image-url>` or reply to a message with an image.\nSupported: PNG, JPG, GIF, WEBP'));
   try {
     const apiUrl = `https://legoify.vercel.app/api/legoify?url=${encodeURIComponent(url)}`;
     const res = await fetch(apiUrl, { signal: AbortSignal.timeout(20000) });
@@ -1104,26 +1273,29 @@ async function handleLego(ctx, args) {
     const att = new AttachmentBuilder(buffer, { name: 'lego.png' });
     return replyEmbed(ctx, base(COLORS.primary).setTitle('Legofied').setImage('attachment://lego.png'), [att]);
   } catch {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not legofy image. Try a different URL.'));
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not legofy image. Try a different URL or image format.'));
   }
 }
 
 // ══════════════════════════════════════════════════════════
-// 28. MAKEGIF (video to GIF) — STUB / NOT IMPLEMENTED
+// 28. MAKEGIF (video to GIF)
 // ══════════════════════════════════════════════════════════
 async function handleMakegif(ctx, args) {
-  const url = args[0];
-  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,makegif <video-url> [quality] [fps] [fastforward]`'));
+  const url = await resolveImageUrl(ctx, args);
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,makegif <video-url>` or reply to a message with a video.\nSupported: MP4, MOV, WEBM'));
+  if (!url.match(/\.(mp4|mov|webm)(\?|$)/i)) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid File').setDescription('That does not look like a video file. Supported: MP4, MOV, WEBM'));
+  }
   return replyEmbed(ctx, base(COLORS.warning).setTitle('MakeGIF')
-    .setDescription('This command requires a video-to-GIF conversion service or ffmpeg setup.\n\n**To enable:**\n1. Install ffmpeg: `npm install ffmpeg-static`\n2. Use an API like CloudConvert or implement local ffmpeg processing.\n\nThis is currently a placeholder.'));
+    .setDescription('Video-to-GIF conversion requires ffmpeg processing.\n\n**To enable:**\n1. Install: `npm install ffmpeg-static fluent-ffmpeg`\n2. Or use a cloud converter API\n\n**Usage:** `,makegif <video-url>` or reply to a video with `,makegif`'));
 }
 
 // ══════════════════════════════════════════════════════════
 // 29. TRANSPARENT (remove background)
 // ══════════════════════════════════════════════════════════
 async function handleTransparent(ctx, args) {
-  const url = args[0];
-  if (!url || !/^https?:\/\//.test(url)) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,transparent <image-url>`'));
+  const url = await resolveImageUrl(ctx, args);
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid URL').setDescription('Usage: `,transparent <image-url>` or reply to a message with an image.\nSupported: PNG, JPG, GIF, WEBP'));
   const key = API_KEYS.REMOVEBG_API_KEY;
   if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('API Key Missing').setDescription('Add `REMOVEBG_API_KEY` to `config/apikeys.js`.\nGet one at https://www.remove.bg/'));
   try {
@@ -1283,7 +1455,6 @@ module.exports = {
   tictactoe: handleTicTacToe,
   google: handleGoogle,
   giphy: handleGiphy,
-  tenor: handleTenor,
   steal: handleSteal,
   duckduckgoimage: handleDuckDuckGoImage,
   reverseimage: handleReverseImage,

@@ -54,23 +54,23 @@ async function bufferFetch(url, opts = {}) {
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function replyEmbed(ctx, embed, files = []) {
-  const isInteraction = !!ctx.deferReply;
-  const payload = { embeds: [embed] };
-  if (files.length) payload.files = files;
-  if (isInteraction) {
-    if (ctx.deferred || ctx.replied) return ctx.editReply(payload);
-    return ctx.reply(payload);
-  }
-  return ctx.channel.send(payload);
+ const isInteraction = !!ctx.deferReply;
+ const payload = { embeds: [embed] };
+ if (files.length) payload.files = files;
+ if (isInteraction) {
+ if (ctx.deferred || ctx.replied) return ctx.editReply(payload);
+ return ctx.reply(payload);
+ }
+ return ctx.channel.send(payload);
 }
 
-// Extract image URL from command args, replied message, or referenced message
+// Extract image URL from command args, replied message, attachments, or recent messages
 async function resolveImageUrl(ctx, args) {
   // 1. Check args for a direct URL
   const urlArg = args.find(a => /^https?:\/\//.test(a));
   if (urlArg) return urlArg;
 
-  // 2. Check if this is a reply to a message with an image
+  // 2. Check if this is a reply to a message with an image/video
   const referenced = ctx.reference || ctx.message?.reference;
   if (referenced?.messageId) {
     try {
@@ -249,6 +249,7 @@ async function handleBlacktea(ctx, args) {
 }
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // 4. QUOTE (message quoting)
 // ══════════════════════════════════════════════════════════
 async function handleQuote(ctx, args) {
@@ -256,30 +257,210 @@ async function handleQuote(ctx, args) {
   let targetMsg = null;
   const input = args[0] || '';
   const linkMatch = input.match(/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/);
+
   try {
+    // 1. Message link provided
     if (linkMatch) {
       const [, , channelId, messageId] = linkMatch;
       const ch = await ctx.client.channels.fetch(channelId).catch(() => null);
       if (ch) targetMsg = await ch.messages.fetch(messageId).catch(() => null);
-    } else if (/^\d+$/.test(input)) {
-      targetMsg = await ctx.channel.messages.fetch(input).catch(() => null);
-    } else {
-      const messages = await ctx.channel.messages.fetch({ limit: 10 });
-      const mention = isInteraction ? null : ctx.mentions?.users?.first();
-      if (mention) targetMsg = messages.find(m => m.author.id === mention.id && !m.author.bot);
-      if (!targetMsg) targetMsg = messages.find(m => !m.author.bot && m.id !== ctx.id);
     }
-  } catch {}
-  if (!targetMsg) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Message Not Found')
-    .setDescription('Provide a message link, message ID, or mention a user.\nUsage: `,quote <message-link>`'));
+    // 2. Numeric message ID provided
+    else if (/^\d+$/.test(input) && input.length >= 10) {
+      targetMsg = await ctx.channel.messages.fetch(input).catch(() => null);
+    }
+    // 3. Command is a reply to another message → quote the REPLIED message
+    else if (ctx.reference?.messageId || ctx.message?.reference?.messageId) {
+      const refId = ctx.reference?.messageId || ctx.message?.reference?.messageId;
+      targetMsg = await ctx.channel.messages.fetch(refId).catch(() => null);
+    }
+    // 4. Mention a user → quote their most recent message
+    else {
+      const messages = await ctx.channel.messages.fetch({ limit: 15 });
+      const mention = isInteraction ? null : ctx.mentions?.users?.first();
+      if (mention) {
+        targetMsg = messages.find(m => m.author.id === mention.id && !m.author.bot);
+      }
+      // 5. No mention → quote the most recent non-bot message that isn't this command
+      if (!targetMsg) {
+        const cmdId = ctx.id || ctx.message?.id;
+        targetMsg = messages.find(m => 
+          !m.author.bot && 
+          m.id !== cmdId &&
+          m.content?.length > 0
+        );
+      }
+    }
+  } catch (err) {
+    console.error('[Quote] Fetch error:', err.message);
+  }
 
-  // Try to generate image with Canvas
-  let canvas, Canvas;
+  if (!targetMsg) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Message Not Found')
+    .setDescription('Reply to a message with `,quote` or provide a message link/ID.\nUsage: `,quote <message-link>`'));
+
   try {
-    Canvas = require('@napi-rs/canvas');
-    canvas = Canvas.createCanvas(1200, 630);
-  } catch {
-    // Fallback to embed
+    const Canvas = require('@napi-rs/canvas');
+    const canvas = Canvas.createCanvas(1200, 675);
+    const ctx2d = canvas.getContext('2d');
+
+    // Try to load background image from message attachments
+    let bgImage = null;
+    if (targetMsg.attachments.size > 0) {
+      const imgAtt = targetMsg.attachments.find(a => a.contentType?.startsWith('image/'));
+      if (imgAtt) {
+        try { bgImage = await Canvas.loadImage(imgAtt.url); } catch {}
+      }
+    }
+    if (!bgImage && targetMsg.embeds.length > 0) {
+      const embedImg = targetMsg.embeds.find(e => e.image?.url || e.thumbnail?.url);
+      if (embedImg) {
+        try { bgImage = await Canvas.loadImage(embedImg.image?.url || embedImg.thumbnail?.url); } catch {}
+      }
+    }
+
+    if (bgImage) {
+      const imgAspect = bgImage.width / bgImage.height;
+      const canvasAspect = 660 / 675;
+      let sx, sy, sWidth, sHeight;
+      if (imgAspect > canvasAspect) {
+        sHeight = bgImage.height;
+        sWidth = sHeight * canvasAspect;
+        sx = (bgImage.width - sWidth) / 2;
+        sy = 0;
+      } else {
+        sWidth = bgImage.width;
+        sHeight = sWidth / canvasAspect;
+        sx = 0;
+        sy = (bgImage.height - sHeight) / 2;
+      }
+      ctx2d.drawImage(bgImage, sx, sy, sWidth, sHeight, 0, 0, 660, 675);
+
+      const gradLeft = ctx2d.createLinearGradient(0, 0, 660, 0);
+      gradLeft.addColorStop(0, 'rgba(0,0,0,0.3)');
+      gradLeft.addColorStop(0.7, 'rgba(0,0,0,0.6)');
+      gradLeft.addColorStop(1, 'rgba(0,0,0,0.95)');
+      ctx2d.fillStyle = gradLeft;
+      ctx2d.fillRect(0, 0, 660, 675);
+    } else {
+      // No image attachment — use user's avatar as blurred background
+      try {
+        const avatarUrl = targetMsg.author.displayAvatarURL({ format: 'png', size: 512 });
+        bgImage = await Canvas.loadImage(avatarUrl);
+        ctx2d.filter = 'blur(8px) brightness(0.4)';
+        ctx2d.drawImage(bgImage, -100, -100, 860, 875);
+        ctx2d.filter = 'none';
+      } catch {
+        ctx2d.fillStyle = '#0a0a0a';
+        ctx2d.fillRect(0, 0, 660, 675);
+      }
+    }
+
+    // Right side solid dark
+    ctx2d.fillStyle = '#0a0a0a';
+    ctx2d.fillRect(660, 0, 540, 675);
+
+    // Smooth gradient transition
+    const gradCenter = ctx2d.createLinearGradient(500, 0, 800, 0);
+    gradCenter.addColorStop(0, 'rgba(10,10,10,0)');
+    gradCenter.addColorStop(1, 'rgba(10,10,10,1)');
+    ctx2d.fillStyle = gradCenter;
+    ctx2d.fillRect(500, 0, 300, 675);
+
+    // Top-left: circular avatar + display name
+    try {
+      const avatarUrl = targetMsg.author.displayAvatarURL({ format: 'png', size: 256 });
+      const avatarImg = await Canvas.loadImage(avatarUrl);
+      const avSize = 70;
+      const avX = 40;
+      const avY = 40;
+      ctx2d.save();
+      ctx2d.beginPath();
+      ctx2d.arc(avX + avSize/2, avY + avSize/2, avSize/2, 0, Math.PI * 2);
+      ctx2d.closePath();
+      ctx2d.clip();
+      ctx2d.drawImage(avatarImg, avX, avY, avSize, avSize);
+      ctx2d.restore();
+
+      const displayName = targetMsg.member?.displayName || targetMsg.author.displayName || targetMsg.author.username;
+      ctx2d.fillStyle = '#ffffff';
+      ctx2d.font = 'bold 24px sans-serif';
+      ctx2d.textAlign = 'left';
+      ctx2d.textBaseline = 'middle';
+      ctx2d.fillText(displayName, avX + avSize + 15, avY + avSize/2);
+    } catch {}
+
+    // === DYNAMIC FONT SIZING FOR QUOTE TEXT ===
+    const text = targetMsg.content || '*No text content*';
+    const username = targetMsg.author.username;
+    const maxWidth = 460;
+    const maxHeight = 520;
+    const centerX = 930;
+
+    // Binary search for optimal font size
+    let minFont = 16;
+    let maxFont = 56;
+    let bestFont = minFont;
+    let bestLines = [];
+
+    while (minFont <= maxFont) {
+      const midFont = Math.floor((minFont + maxFont) / 2);
+      ctx2d.font = `bold ${midFont}px sans-serif`;
+      const words = text.split(' ');
+      const lines = [];
+      let line = '';
+      for (const word of words) {
+        const testLine = line + word + ' ';
+        const metrics = ctx2d.measureText(testLine);
+        if (metrics.width > maxWidth && line !== '') {
+          lines.push(line.trim());
+          line = word + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line.trim());
+
+      const lineHeight = midFont * 1.5;
+      const attributionHeight = Math.max(16, midFont * 0.55);
+      const totalHeight = lines.length * lineHeight + attributionHeight + 30;
+
+      if (totalHeight <= maxHeight) {
+        bestFont = midFont;
+        bestLines = lines;
+        minFont = midFont + 1;
+      } else {
+        maxFont = midFont - 1;
+      }
+    }
+
+    // Render with best font size
+    const fontSize = bestFont;
+    const lineHeight = fontSize * 1.5;
+    const attributionHeight = Math.max(16, fontSize * 0.55);
+    const totalHeight = bestLines.length * lineHeight + attributionHeight + 30;
+    let startY = (675 - totalHeight) / 2 + lineHeight / 2;
+
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.textAlign = 'center';
+    ctx2d.textBaseline = 'middle';
+    ctx2d.font = `bold ${fontSize}px sans-serif`;
+
+    for (let i = 0; i < bestLines.length; i++) {
+      ctx2d.fillText(bestLines[i], centerX, startY + i * lineHeight);
+    }
+
+    // Attribution with username
+    ctx2d.fillStyle = '#888888';
+    ctx2d.font = `italic ${Math.max(16, fontSize * 0.55)}px sans-serif`;
+    ctx2d.fillText(`— ${username}`, centerX, startY + bestLines.length * lineHeight + 20);
+
+    // Send as plain file (no embed wrapper)
+    const buffer = await canvas.encode('png');
+    const att = new AttachmentBuilder(buffer, { name: 'quote.png' });
+    return ctx.channel.send({ files: [att] });
+  } catch (err) {
+    console.error('[Quote] Canvas error:', err.message);
+    // Fallback to simple embed
     const embed = base(COLORS.primary)
       .setAuthor({ name: targetMsg.author.tag, iconURL: targetMsg.author.displayAvatarURL() })
       .setDescription(targetMsg.content || '*No text content*')
@@ -291,77 +472,6 @@ async function handleQuote(ctx, args) {
     }
     return replyEmbed(ctx, embed);
   }
-
-  const ctx2d = canvas.getContext('2d');
-
-  // Dark background
-  ctx2d.fillStyle = '#0a0a0a';
-  ctx2d.fillRect(0, 0, 1200, 630);
-
-  // Add a subtle gradient overlay
-  const gradient = ctx2d.createLinearGradient(0, 0, 1200, 630);
-  gradient.addColorStop(0, 'rgba(20, 20, 30, 0.8)');
-  gradient.addColorStop(1, 'rgba(10, 10, 20, 0.95)');
-  ctx2d.fillStyle = gradient;
-  ctx2d.fillRect(0, 0, 1200, 630);
-
-  // Draw avatar (circular clip)
-  try {
-    const avatarUrl = targetMsg.author.displayAvatarURL({ format: 'png', size: 256 });
-    const avatarImg = await Canvas.loadImage(avatarUrl);
-    const avatarSize = 80;
-    const avatarX = 80;
-    const avatarY = 80;
-
-    ctx2d.save();
-    ctx2d.beginPath();
-    ctx2d.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
-    ctx2d.closePath();
-    ctx2d.clip();
-    ctx2d.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
-    ctx2d.restore();
-  } catch {}
-
-  // Draw author name
-  ctx2d.fillStyle = '#ffffff';
-  ctx2d.font = 'bold 36px sans-serif';
-  ctx2d.fillText(targetMsg.author.username, 180, 125);
-
-  // Draw message content (word wrap)
-  ctx2d.fillStyle = '#e0e0e0';
-  ctx2d.font = '32px sans-serif';
-  const text = targetMsg.content || '*No text content*';
-  const maxWidth = 1000;
-  const lineHeight = 45;
-  const x = 80;
-  let y = 220;
-
-  const words = text.split(' ');
-  let line = '';
-  for (const word of words) {
-    const testLine = line + word + ' ';
-    const metrics = ctx2d.measureText(testLine);
-    if (metrics.width > maxWidth && line !== '') {
-      ctx2d.fillText(line, x, y);
-      line = word + ' ';
-      y += lineHeight;
-      if (y > 500) break;
-    } else {
-      line = testLine;
-    }
-  }
-  ctx2d.fillText(line, x, y);
-
-  // Draw timestamp
-  ctx2d.fillStyle = '#888888';
-  ctx2d.font = '20px sans-serif';
-  const date = targetMsg.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  ctx2d.fillText(`- ${targetMsg.author.username}  •  ${date}`, 80, 580);
-
-  // Convert to buffer and send
-  const buffer = await canvas.encode('png');
-  const att = new AttachmentBuilder(buffer, { name: 'quote.png' });
-  return replyEmbed(ctx, base(COLORS.primary).setTitle('Quote').setImage('attachment://quote.png'), [att]);
 }
 
 // 5. TIC-TAC-TOE (with stats & leaderboard)

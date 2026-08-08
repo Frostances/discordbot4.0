@@ -1000,6 +1000,10 @@ async function handleTtsChannel(ctx, args) {
     // Clean up any existing TTS for this guild
     cleanupTts(ctx.guild.id);
 
+    // Wait for Discord to process the disconnect before reconnecting
+    console.log('[TTS] Waiting 2s for cleanup to settle...');
+    await new Promise(r => setTimeout(r, 2000));
+
     // Join voice channel
     const connection = voice.joinVoiceChannel({
       channelId: vc.id,
@@ -1012,7 +1016,31 @@ async function handleTtsChannel(ctx, args) {
     // Debug: log state changes
     connection.on('stateChange', (oldState, newState) => {
       console.log(`[TTS] Connection state: ${oldState.status} -> ${newState.status}`);
+      if (newState.status === 'disconnected' && newState.reason) {
+        console.log('[TTS] Disconnect reason:', newState.reason);
+      }
+      if (newState.status === 'connecting' && oldState.status === 'connecting') {
+        console.log('[TTS] Connection retrying...');
+      }
     });
+
+    connection.on('error', (err) => {
+      console.error('[TTS] Connection error:', err.message);
+    });
+
+    connection.on('debug', (msg) => {
+      console.log('[TTS] Debug:', msg);
+    });
+
+    // CRITICAL: Wait for connection to be ready before playing
+    try {
+      await voice.entersState(connection, voice.VoiceConnectionStatus.Ready, 60000);
+      console.log('[TTS] Voice connection ready');
+    } catch (e) {
+      connection.destroy();
+      console.error('[TTS] Connection failed to reach Ready:', e.message);
+      throw new Error('Voice connection failed to establish.\n\nCommon causes:\n1. Replit blocks Discord voice UDP (most likely)\n2. Bot lacks Connect/Speak permissions in the voice channel\n3. Discord voice region issue — try a different voice channel\n4. Missing GuildVoiceStates intent\n\nIf you are on Replit, Discord voice often does not work due to UDP restrictions. Consider using Railway, Fly.io, or a VPS.');
+    }
 
     // Write buffer to temp file — ffmpeg needs a real file path
     const tmpFile = path.join(os.tmpdir(), `kaido_tts_${ctx.guild.id}_${Date.now()}.mp3`);
@@ -1034,9 +1062,6 @@ async function handleTtsChannel(ctx, args) {
       inputType: voice.StreamType.Arbitrary,
       inlineVolume: true,
     });
-
-    // Small delay to let connection settle before playing
-    await new Promise(r => setTimeout(r, 500));
 
     player.play(resource);
     connection.subscribe(player);

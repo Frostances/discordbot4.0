@@ -974,6 +974,17 @@ async function handleTtsChannel(ctx, args) {
       .setDescription('`ffmpeg-static` is required to play audio.\nRun: `npm install ffmpeg-static`'));
   }
 
+  // Check opus encoder is available
+  const opusModules = ['@discordjs/opus', 'node-opus', 'opusscript'];
+  let hasOpus = false;
+  for (const mod of opusModules) {
+    try { require(mod); hasOpus = true; break; } catch {}
+  }
+  if (!hasOpus) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Opus Encoder')
+      .setDescription('An Opus encoder is required to play audio.\nRun one of these:\n`npm install @discordjs/opus` (recommended)\n`npm install opusscript` (fallback, pure JS)'));
+  }
+
   try {
     // Fetch TTS audio from Google
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${speaker}&client=tw-ob`;
@@ -998,23 +1009,24 @@ async function handleTtsChannel(ctx, args) {
       selfMute: false,
     });
 
-    // Wait for connection to be ready (CRITICAL — without this, audio won't play)
-    try {
-      await voice.entersState(connection, voice.VoiceConnectionStatus.Ready, 15000);
-      console.log('[TTS] Voice connection ready');
-    } catch (e) {
-      connection.destroy();
-      throw new Error('Could not connect to voice channel. Check bot has Connect + Speak permissions.');
-    }
+    // Debug: log state changes
+    connection.on('stateChange', (oldState, newState) => {
+      console.log(`[TTS] Connection state: ${oldState.status} -> ${newState.status}`);
+    });
 
-    // Write buffer to temp file — ffmpeg needs a real file path, not a stream
+    // Write buffer to temp file — ffmpeg needs a real file path
     const tmpFile = path.join(os.tmpdir(), `kaido_tts_${ctx.guild.id}_${Date.now()}.mp3`);
     fs.writeFileSync(tmpFile, buffer);
     console.log('[TTS] Temp file written:', tmpFile);
 
-    // Create player with NoSubscriberBehavior.Play so it doesn't stop immediately
+    // Create player
     const player = voice.createAudioPlayer({
       behaviors: { noSubscriber: voice.NoSubscriberBehavior.Play }
+    });
+
+    // Debug: log player state changes
+    player.on('stateChange', (oldState, newState) => {
+      console.log(`[TTS] Player state: ${oldState.status} -> ${newState.status}`);
     });
 
     // Create audio resource from file
@@ -1022,6 +1034,9 @@ async function handleTtsChannel(ctx, args) {
       inputType: voice.StreamType.Arbitrary,
       inlineVolume: true,
     });
+
+    // Small delay to let connection settle before playing
+    await new Promise(r => setTimeout(r, 500));
 
     player.play(resource);
     connection.subscribe(player);
@@ -1047,8 +1062,7 @@ async function handleTtsChannel(ctx, args) {
     console.error('[TTS] Error:', err);
     cleanupTts(ctx.guild.id);
     return replyEmbed(ctx, base(COLORS.error).setTitle('Failed')
-      .setDescription(`Could not speak in voice channel.
-**Reason:** ${err.message || 'Unknown error'}`));
+      .setDescription(`Could not speak in voice channel.\n**Reason:** ${err.message || 'Unknown error'}`));
   }
 }
 

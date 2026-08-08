@@ -98,7 +98,6 @@ const funAliases = {
   blacktea: ['bt', 'tea'],
   quote: ['qt'],
   tictactoe: ['ttt', 'tic'],
-  google: ['g', 'search'],
   giphy: ['gif', 'gify'],
   steal: ['emote', 'recentemote'],
   duckduckgoimage: ['ddgimg', 'duckimage', 'ddgi'],
@@ -130,6 +129,31 @@ const funAliases = {
   'juul stats': ['juulstats', 'vapestats'],
   'juul flavor': ['juulflavor', 'vapeflavor'],
   'juul steal': ['stealjuul', 'vapest'],
+  embedcode: ['ec', 'embedjson'],
+  randomhex: ['randhex', 'rhex', 'hex'],
+  charinfo: ['char', 'unicode', 'cp'],
+  color: ['colour', 'hexcolor'],
+  addemote: ['addemoji', 'stealemoji', 'downloademoji'],
+  rps: ['rockpaperscissors'],
+  choose: ['pick', 'decide', 'randomchoice'],
+  jumbo: ['bigemoji', 'largeemoji', 'emojiurl'],
+  wouldyourather: ['wyr', 'rather'],
+  invites: ['invitelist', 'serverinvites'],
+  makemp3: ['mp3', 'toaudio', 'extractaudio'],
+  wikihow: ['howto', 'wiki'],
+  gnames: ['guildnames', 'servernames'],
+  clearnames: ['resetnames', 'clnh'],
+  cleargnames: ['resetgnames', 'clgn'],
+  brainly: ['brain', 'homework'],
+  names: ['namehistory', 'nickhistory', 'nh'],
+  shazam: ['findsong', 'identifysong', 'whatsong'],
+  topcommands: ['topcmds', 'cmdstats', 'mostused'],
+  afkmentions: ['afkmsgs', 'afknotifs'],
+  poll: ['vote', 'strawpoll'],
+  chatgpt: ['ask', 'gpt', 'ai', 'openai'],
+  uwu: ['uwuify', 'owo'],
+  freaky: ['freakify', 'stretch'],
+  quickpoll: ['qpoll', 'updown', 'reactpoll'],
 };
 const { handleRestrictCommand }                          = require('./modules/restrictcommand');
 const { restoreJailTimers, applyJailPermsToNewChannel } = require('./modules/jail');
@@ -1206,6 +1230,15 @@ client.on('messageCreate', async (message) => {
 
     logger.command(message.author.tag, message.guild.name, command);
 
+    // Track command usage for topcommands
+    try {
+      const { commandUsage } = require('./modules/funCommands');
+      if (commandUsage) {
+        commandUsage.set(command, (commandUsage.get(command) || 0) + 1);
+      }
+    } catch {}
+
+
     try {
          // ── Invoke Messages ──
          if (command === 'invoke') return handleInvokeCommand(message, args);
@@ -1749,11 +1782,15 @@ client.on('interactionCreate', async (interaction) => {
 
              // ── Fun slash commands ──
              const funSlashCommands = [
-               'lyrics','duckduckgo','blacktea','quote','tictactoe','google','giphy',
+               'lyrics','duckduckgo','blacktea','quote','tictactoe','giphy',
                'steal','duckduckgoimage','reverseimage','image','book','manga','anime',
                'character','tone','tags','tvshow','game','movie','movieexpand','ocr','ocrtr',
                'translate','tts','ttschannel','lego','makegif','transparent','wolfram',
-               'juul','juul hit','juul pass','juul toggle','juul stats','juul flavor','juul steal'
+               'juul','juul hit','juul pass','juul toggle','juul stats','juul flavor','juul steal',
+               'embedcode','randomhex','charinfo','color','addemote','rps','choose','jumbo',
+               'wouldyourather','invites','makemp3','wikihow','gnames','clearnames','cleargnames',
+               'brainly','names','shazam','topcommands','afkmentions','poll','chatgpt','uwu',
+               'freaky','quickpoll'
              ];
              if (funSlashCommands.includes(cmd)) {
                let slashArgs = [];

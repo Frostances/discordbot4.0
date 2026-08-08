@@ -24,6 +24,9 @@ try {
     OCR_API_KEY: '',
     REMOVEBG_API_KEY: '',
     WOLFRAM_API_KEY: '',
+    OPENAI_API_KEY: '',
+    GROQ_API_KEY: '',
+    AUDD_API_KEY: '',
   };
 }
 
@@ -105,13 +108,13 @@ async function resolveImageUrl(ctx, args) {
 }
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // 1. LYRICS
 // ══════════════════════════════════════════════════════════
 async function handleLyrics(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,lyrics <artist> - <song>` or `,lyrics <song>`'));
 
-  // Try lyrist API first (most reliable)
   try {
     let artist = query, title = query;
     if (query.includes(' - ')) { [artist, title] = query.split(' - ').map(s => s.trim()); }
@@ -123,7 +126,6 @@ async function handleLyrics(ctx, args) {
     }
   } catch (e) { console.log('[Lyrics] Lyrist failed:', e.message); }
 
-  // Fallback to lyrics.ovh
   try {
     const [artist, title] = query.includes(' - ') ? query.split(' - ').map(s => s.trim()) : [query, query];
     const data = await jsonFetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
@@ -134,7 +136,6 @@ async function handleLyrics(ctx, args) {
     }
   } catch (e) { console.log('[Lyrics] lyrics.ovh failed:', e.message); }
 
-  // Final fallback: try lyrics.ovh suggest endpoint
   try {
     const data = await jsonFetch(`https://api.lyrics.ovh/suggest/${encodeURIComponent(query)}`);
     if (data?.data?.length) {
@@ -150,8 +151,6 @@ async function handleLyrics(ctx, args) {
 
   return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Not Found').setDescription('Could not find lyrics. Try `artist - song` format, e.g. `,lyrics The Weeknd - Blinding Lights`'));
 }
-
-// ══════════════════════════════════════════════════════════
 // 2. DUCKDUCKGO SEARCH
 // ══════════════════════════════════════════════════════════
 async function handleDuckDuckGo(ctx, args) {
@@ -250,6 +249,7 @@ async function handleBlacktea(ctx, args) {
 
 // ══════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // 4. QUOTE (message quoting)
 // ══════════════════════════════════════════════════════════
 async function handleQuote(ctx, args) {
@@ -257,47 +257,24 @@ async function handleQuote(ctx, args) {
   let targetMsg = null;
   const input = args[0] || '';
   const linkMatch = input.match(/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/);
-
   try {
-    // 1. Message link provided
     if (linkMatch) {
       const [, , channelId, messageId] = linkMatch;
       const ch = await ctx.client.channels.fetch(channelId).catch(() => null);
       if (ch) targetMsg = await ch.messages.fetch(messageId).catch(() => null);
-    }
-    // 2. Numeric message ID provided
-    else if (/^\d+$/.test(input) && input.length >= 10) {
+    } else if (/^\d+$/.test(input)) {
       targetMsg = await ctx.channel.messages.fetch(input).catch(() => null);
-    }
-    // 3. Command is a reply to another message → quote the REPLIED message
-    else if (ctx.reference?.messageId || ctx.message?.reference?.messageId) {
-      const refId = ctx.reference?.messageId || ctx.message?.reference?.messageId;
-      targetMsg = await ctx.channel.messages.fetch(refId).catch(() => null);
-    }
-    // 4. Mention a user → quote their most recent message
-    else {
-      const messages = await ctx.channel.messages.fetch({ limit: 15 });
+    } else {
+      const messages = await ctx.channel.messages.fetch({ limit: 10 });
       const mention = isInteraction ? null : ctx.mentions?.users?.first();
-      if (mention) {
-        targetMsg = messages.find(m => m.author.id === mention.id && !m.author.bot);
-      }
-      // 5. No mention → quote the most recent non-bot message that isn't this command
-      if (!targetMsg) {
-        const cmdId = ctx.id || ctx.message?.id;
-        targetMsg = messages.find(m => 
-          !m.author.bot && 
-          m.id !== cmdId &&
-          m.content?.length > 0
-        );
-      }
+      if (mention) targetMsg = messages.find(m => m.author.id === mention.id && !m.author.bot);
+      if (!targetMsg) targetMsg = messages.find(m => !m.author.bot && m.id !== ctx.id);
     }
-  } catch (err) {
-    console.error('[Quote] Fetch error:', err.message);
-  }
-
+  } catch {}
   if (!targetMsg) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Message Not Found')
-    .setDescription('Reply to a message with `,quote` or provide a message link/ID.\nUsage: `,quote <message-link>`'));
+    .setDescription('Provide a message link, message ID, or mention a user.\nUsage: `,quote <message-link>`'));
 
+  // Try to generate image with Canvas
   try {
     const Canvas = require('@napi-rs/canvas');
     const canvas = Canvas.createCanvas(1200, 675);
@@ -317,6 +294,9 @@ async function handleQuote(ctx, args) {
         try { bgImage = await Canvas.loadImage(embedImg.image?.url || embedImg.thumbnail?.url); } catch {}
       }
     }
+    if (!bgImage) {
+      try { bgImage = await Canvas.loadImage(targetMsg.author.displayAvatarURL({ format: 'png', size: 512 })); } catch {}
+    }
 
     if (bgImage) {
       const imgAspect = bgImage.width / bgImage.height;
@@ -334,77 +314,70 @@ async function handleQuote(ctx, args) {
         sy = (bgImage.height - sHeight) / 2;
       }
       ctx2d.drawImage(bgImage, sx, sy, sWidth, sHeight, 0, 0, 660, 675);
-
       const gradLeft = ctx2d.createLinearGradient(0, 0, 660, 0);
       gradLeft.addColorStop(0, 'rgba(0,0,0,0.3)');
       gradLeft.addColorStop(0.7, 'rgba(0,0,0,0.6)');
       gradLeft.addColorStop(1, 'rgba(0,0,0,0.95)');
       ctx2d.fillStyle = gradLeft;
       ctx2d.fillRect(0, 0, 660, 675);
-    } else {
-      // No image attachment — use user's avatar as blurred background
-      try {
-        const avatarUrl = targetMsg.author.displayAvatarURL({ format: 'png', size: 512 });
-        bgImage = await Canvas.loadImage(avatarUrl);
-        ctx2d.filter = 'blur(8px) brightness(0.4)';
-        ctx2d.drawImage(bgImage, -100, -100, 860, 875);
-        ctx2d.filter = 'none';
-      } catch {
-        ctx2d.fillStyle = '#0a0a0a';
-        ctx2d.fillRect(0, 0, 660, 675);
-      }
     }
 
-    // Right side solid dark
     ctx2d.fillStyle = '#0a0a0a';
     ctx2d.fillRect(660, 0, 540, 675);
-
-    // Smooth gradient transition
     const gradCenter = ctx2d.createLinearGradient(500, 0, 800, 0);
     gradCenter.addColorStop(0, 'rgba(10,10,10,0)');
     gradCenter.addColorStop(1, 'rgba(10,10,10,1)');
     ctx2d.fillStyle = gradCenter;
     ctx2d.fillRect(500, 0, 300, 675);
 
-    // Top-left: circular avatar + display name
+    // Draw circular avatar + display name at top-left
     try {
       const avatarUrl = targetMsg.author.displayAvatarURL({ format: 'png', size: 256 });
       const avatarImg = await Canvas.loadImage(avatarUrl);
-      const avSize = 70;
-      const avX = 40;
-      const avY = 40;
+      const avatarSize = 70;
+      const avatarX = 40;
+      const avatarY = 40;
       ctx2d.save();
       ctx2d.beginPath();
-      ctx2d.arc(avX + avSize/2, avY + avSize/2, avSize/2, 0, Math.PI * 2);
+      ctx2d.arc(avatarX + avatarSize/2, avatarY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
       ctx2d.closePath();
       ctx2d.clip();
-      ctx2d.drawImage(avatarImg, avX, avY, avSize, avSize);
+      ctx2d.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
       ctx2d.restore();
-
-      const displayName = targetMsg.member?.displayName || targetMsg.author.displayName || targetMsg.author.username;
       ctx2d.fillStyle = '#ffffff';
-      ctx2d.font = 'bold 24px sans-serif';
+      ctx2d.font = 'bold 28px sans-serif';
       ctx2d.textAlign = 'left';
-      ctx2d.textBaseline = 'middle';
-      ctx2d.fillText(displayName, avX + avSize + 15, avY + avSize/2);
+      ctx2d.fillText(targetMsg.member?.displayName || targetMsg.author.displayName, avatarX + avatarSize + 15, avatarY + avatarSize/2 + 10);
     } catch {}
 
-    // === DYNAMIC FONT SIZING FOR QUOTE TEXT ===
+    // Adaptive font sizing for quote text
     const text = targetMsg.content || '*No text content*';
-    const username = targetMsg.author.username;
-    const maxWidth = 460;
-    const maxHeight = 520;
-    const centerX = 930;
+    const authorName = targetMsg.author.username;
 
-    // Binary search for optimal font size
-    let minFont = 16;
-    let maxFont = 56;
-    let bestFont = minFont;
-    let bestLines = [];
-
-    while (minFont <= maxFont) {
-      const midFont = Math.floor((minFont + maxFont) / 2);
-      ctx2d.font = `bold ${midFont}px sans-serif`;
+    function fitText(ctx2d, text, maxWidth, maxHeight, startSize) {
+      let fontSize = startSize;
+      while (fontSize >= 14) {
+        ctx2d.font = `bold ${fontSize}px sans-serif`;
+        const words = text.split(' ');
+        const lines = [];
+        let line = '';
+        for (const word of words) {
+          const testLine = line + word + ' ';
+          const metrics = ctx2d.measureText(testLine);
+          if (metrics.width > maxWidth && line !== '') {
+            lines.push(line.trim());
+            line = word + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        lines.push(line.trim());
+        const lineHeight = fontSize * 1.4;
+        const totalHeight = lines.length * lineHeight;
+        if (totalHeight <= maxHeight) return { fontSize, lines, lineHeight };
+        fontSize -= 2;
+      }
+      ctx2d.font = `bold 14px sans-serif`;
       const words = text.split(' ');
       const lines = [];
       let line = '';
@@ -419,48 +392,33 @@ async function handleQuote(ctx, args) {
         }
       }
       lines.push(line.trim());
-
-      const lineHeight = midFont * 1.5;
-      const attributionHeight = Math.max(16, midFont * 0.55);
-      const totalHeight = lines.length * lineHeight + attributionHeight + 30;
-
-      if (totalHeight <= maxHeight) {
-        bestFont = midFont;
-        bestLines = lines;
-        minFont = midFont + 1;
-      } else {
-        maxFont = midFont - 1;
-      }
+      return { fontSize: 14, lines, lineHeight: 20 };
     }
 
-    // Render with best font size
-    const fontSize = bestFont;
-    const lineHeight = fontSize * 1.5;
-    const attributionHeight = Math.max(16, fontSize * 0.55);
-    const totalHeight = bestLines.length * lineHeight + attributionHeight + 30;
-    let startY = (675 - totalHeight) / 2 + lineHeight / 2;
+    const maxTextW = 460;
+    const maxTextH = 420;
+    const centerX = 930;
+    const { fontSize, lines, lineHeight } = fitText(ctx2d, text, maxTextW, maxTextH, 56);
+
+    const totalTextH = lines.length * lineHeight;
+    let startY = 280 - totalTextH / 2 + lineHeight / 2;
 
     ctx2d.fillStyle = '#ffffff';
     ctx2d.textAlign = 'center';
     ctx2d.textBaseline = 'middle';
-    ctx2d.font = `bold ${fontSize}px sans-serif`;
-
-    for (let i = 0; i < bestLines.length; i++) {
-      ctx2d.fillText(bestLines[i], centerX, startY + i * lineHeight);
+    for (let i = 0; i < lines.length; i++) {
+      ctx2d.fillText(lines[i], centerX, startY + i * lineHeight);
     }
 
-    // Attribution with username
     ctx2d.fillStyle = '#888888';
-    ctx2d.font = `italic ${Math.max(16, fontSize * 0.55)}px sans-serif`;
-    ctx2d.fillText(`— ${username}`, centerX, startY + bestLines.length * lineHeight + 20);
+    ctx2d.font = `italic ${Math.max(16, Math.floor(fontSize * 0.55))}px sans-serif`;
+    ctx2d.fillText(`— ${authorName}`, centerX, startY + lines.length * lineHeight + 25);
 
-    // Send as plain file (no embed wrapper)
     const buffer = await canvas.encode('png');
     const att = new AttachmentBuilder(buffer, { name: 'quote.png' });
     return ctx.channel.send({ files: [att] });
   } catch (err) {
     console.error('[Quote] Canvas error:', err.message);
-    // Fallback to simple embed
     const embed = base(COLORS.primary)
       .setAuthor({ name: targetMsg.author.tag, iconURL: targetMsg.author.displayAvatarURL() })
       .setDescription(targetMsg.content || '*No text content*')
@@ -473,7 +431,6 @@ async function handleQuote(ctx, args) {
     return replyEmbed(ctx, embed);
   }
 }
-
 // 5. TIC-TAC-TOE (with stats & leaderboard)
 // ══════════════════════════════════════════════════════════
 const TTT_WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -639,30 +596,6 @@ async function handleTicTacToe(ctx, args) {
 
 // ══════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════
-// 6. GOOGLE SEARCH
-// ══════════════════════════════════════════════════════════
-async function handleGoogle(ctx, args) {
-  const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,google <query>`'));
-  const key = API_KEYS.GOOGLE_API_KEY, cx = API_KEYS.GOOGLE_CX;
-  if (!key || !cx) {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Keys Missing')
-      .setDescription('Add `GOOGLE_API_KEY` and `GOOGLE_CX` to `config/apikeys.js`.\nGet them at https://developers.google.com/custom-search/v1/overview'));
-  }
-  try {
-    const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}`);
-    if (data.items?.length) {
-      const results = data.items.slice(0, 5).map((item, i) => `**${i + 1}.** [${item.title}](${item.link})\n${item.snippet?.slice(0, 120) || ''}...`);
-      return replyEmbed(ctx, base(COLORS.primary).setTitle(`🔍 Google: ${query}`).setDescription(results.join('\n\n')).setFooter({ text: 'Google Custom Search' }));
-    }
-    return replyEmbed(ctx, base(COLORS.warning).setTitle('🔍 No Results').setDescription('Google found no results for that query.'));
-  } catch (err) {
-    console.error('[Google] Error:', err.message);
-    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Google Search Failed')
-      .setDescription(`**Reason:** ${err.message}\n\nMake sure your API key and Search Engine ID are valid.`));
-  }
-}
-
 // 7. GIPHY
 // ══════════════════════════════════════════════════════════
 async function handleGiphy(ctx, args) {
@@ -733,6 +666,7 @@ async function handleDuckDuckGoImage(ctx, args) {
 }
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // 11. REVERSE IMAGE
 // ══════════════════════════════════════════════════════════
 async function handleReverseImage(ctx, args) {
@@ -742,32 +676,28 @@ async function handleReverseImage(ctx, args) {
     .setDescription(`[Search on Google Lens](https://lens.google.com/uploadbyurl?url=${encodeURIComponent(url)})\n[Search on TinEye](https://tineye.com/search?url=${encodeURIComponent(url)})\n[Search on Yandex](https://yandex.com/images/search?url=${encodeURIComponent(url)}&rpt=imageview)`)
     .setImage(url).setFooter({ text: 'Click a link above to view results' }));
 }
-
-// ══════════════════════════════════════════════════════════
-// 12. IMAGE SEARCH
+// 12. IMAGE SEARCH (DDG)
 // ══════════════════════════════════════════════════════════
 async function handleImage(ctx, args) {
   const query = args.join(' ').trim();
   if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,image <query>`'));
-  const key = API_KEYS.GOOGLE_API_KEY, cx = API_KEYS.GOOGLE_CX;
-  if (!key || !cx) {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Keys Missing')
-      .setDescription('Add `GOOGLE_API_KEY` and `GOOGLE_CX` to `config/apikeys.js`.\nGet them at https://developers.google.com/custom-search/v1/overview'));
-  }
   try {
-    const data = await jsonFetch(`https://www.googleapis.com/customsearch/v1?key=${key}&cx=${cx}&q=${encodeURIComponent(query)}&searchType=image`);
-    if (data.items?.length) {
-      const img = rand(data.items);
-      return replyEmbed(ctx, base(COLORS.primary).setTitle(`🖼️ Image: ${query}`).setImage(img.link).setFooter({ text: `From: ${img.displayLink || 'Google'}` }));
-    }
-    return replyEmbed(ctx, base(COLORS.warning).setTitle('🖼️ No Results').setDescription('Google found no images for that query.'));
+    const html = await textFetch(`https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+    });
+    const match = html.match(/vqd="([^"]+)"/);
+    if (!match) throw new Error('no vqd');
+    const data = await jsonFetch(`https://duckduckgo.com/i.js?q=${encodeURIComponent(query)}&vqd=${match[1]}&f=,,,&l=us-en`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Referer': 'https://duckduckgo.com/' }
+    });
+    if (!data.results?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No images found.'));
+    const img = rand(data.results);
+    return replyEmbed(ctx, base(COLORS.primary).setTitle(`🖼️ Image: ${query}`).setImage(img.image).setFooter({ text: `From: ${img.source || 'DuckDuckGo'}` }));
   } catch (err) {
     console.error('[Image] Error:', err.message);
-    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Image Search Failed')
-      .setDescription(`**Reason:** ${err.message}\n\nMake sure your API key and Search Engine ID are valid.`));
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Search Failed').setDescription('Could not fetch images.'));
   }
 }
-// ══════════════════════════════════════════════════════════
 // 13. BOOK (Open Library)
 // ══════════════════════════════════════════════════════════
 async function handleBook(ctx, args) {
@@ -812,7 +742,7 @@ async function handleManga(ctx, args) {
       ).setFooter({ text: 'Powered by MyAnimeList (Jikan)' });
     if (manga.images?.jpg?.image_url) embed.setThumbnail(manga.images.jpg.image_url);
     return replyEmbed(ctx, embed);
-  } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch manga information.')); }
+  } catch (err) { console.error('[Manga] Error:', err.message); return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch manga information. The API may be rate-limited — try again in a few seconds.')); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -837,7 +767,7 @@ async function handleAnime(ctx, args) {
       ).setFooter({ text: 'Powered by MyAnimeList (Jikan)' });
     if (anime.images?.jpg?.image_url) embed.setThumbnail(anime.images.jpg.image_url);
     return replyEmbed(ctx, embed);
-  } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch anime information.')); }
+  } catch (err) { console.error('[Anime] Error:', err.message); return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch anime information. The API may be rate-limited — try again in a few seconds.')); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -859,7 +789,7 @@ async function handleCharacter(ctx, args) {
       ).setFooter({ text: 'Powered by MyAnimeList (Jikan)' });
     if (char.images?.jpg?.image_url) embed.setThumbnail(char.images.jpg.image_url);
     return replyEmbed(ctx, embed);
-  } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch character information.')); }
+  } catch (err) { console.error('[Character] Error:', err.message); return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch character information. The API may be rate-limited — try again in a few seconds.')); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1082,6 +1012,7 @@ async function handleMovie(ctx, args) {
 }
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // 22. OCR (OCR.space)
 // ══════════════════════════════════════════════════════════
 async function handleOcr(ctx, args) {
@@ -1096,7 +1027,6 @@ async function handleOcr(ctx, args) {
     return replyEmbed(ctx, base(COLORS.primary).setTitle('🔍 OCR Results').setDescription(`\`\`\`${text.slice(0, 3900)}\`\`\``).setFooter({ text: 'Powered by OCR.space' }));
   } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not perform OCR.')); }
 }
-
 // ══════════════════════════════════════════════════════════
 // 23. OCR + TRANSLATE
 // ══════════════════════════════════════════════════════════
@@ -1121,28 +1051,22 @@ async function handleOcrtr(ctx, args) {
       ).setFooter({ text: 'Powered by OCR.space & Google Translate' }));
   } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not process image.')); }
 }
-
 // ══════════════════════════════════════════════════════════
 // 24. TRANSLATE
 // ══════════════════════════════════════════════════════════
 async function handleTranslate(ctx, args) {
   let toLang = 'en', fromLang = 'auto', textStart = 0;
-
-  // Check if replying to a message
   const referenced = ctx.reference || ctx.message?.reference;
   let text = null;
-
   if (referenced?.messageId) {
     try {
       const refMsg = await ctx.channel.messages.fetch(referenced.messageId);
       text = refMsg.content;
-      // Check if user specified a language in args
       if (args.length >= 1 && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[0])) {
         toLang = args[0];
       }
     } catch {}
   }
-
   if (!text) {
     if (args.length >= 3 && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[0]) && /^[a-z]{2}(-[A-Z]{2})?$/.test(args[1])) {
       fromLang = args[0]; toLang = args[1]; textStart = 2;
@@ -1151,7 +1075,6 @@ async function handleTranslate(ctx, args) {
     }
     text = args.slice(textStart).join(' ');
   }
-
   if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,translate <to-lang> <text>` or reply to a message with `,translate <to-lang>`'));
   try {
     const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`);
@@ -1165,8 +1088,6 @@ async function handleTranslate(ctx, args) {
       ).setFooter({ text: 'Powered by Google Translate' }));
   } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not translate text.')); }
 }
-
-// ══════════════════════════════════════════════════════════
 // 25. TTS (Text to Speech)
 // ══════════════════════════════════════════════════════════
 async function handleTts(ctx, args) {
@@ -1186,177 +1107,102 @@ async function handleTts(ctx, args) {
 }
 
 // ══════════════════════════════════════════════════════════
-// 26. TTS CHANNEL (speak in VC)
 // ══════════════════════════════════════════════════════════
-const ttsConnections = new Map(); // guildId -> { connection, player, tmpFile, timeout }
-
-function cleanupTts(guildId) {
-  const entry = ttsConnections.get(guildId);
-  if (!entry) return;
-  if (entry.timeout) clearTimeout(entry.timeout);
-  try { entry.player?.stop(); } catch {}
-  try {
-    if (entry.connection && entry.connection.state.status !== 'destroyed') {
-      entry.connection.destroy();
-    }
-  } catch {}
-  if (entry.tmpFile && fs.existsSync(entry.tmpFile)) {
-    try { fs.unlinkSync(entry.tmpFile); } catch {}
-  }
-  ttsConnections.delete(guildId);
-}
-
+// 26. TTS CHANNEL
+// ══════════════════════════════════════════════════════════
 async function handleTtsChannel(ctx, args) {
-  let speaker = 'en', textStart = 0;
-  const voices = ['en','es','fr','de','it','ja','ko','ru','ar','pt','nl','pl','tr','zh'];
-  if (voices.includes(args[0]?.toLowerCase())) { speaker = args[0].toLowerCase(); textStart = 1; }
-  const text = args.slice(textStart).join(' ');
-  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Text').setDescription('Usage: `,ttschannel [language] <text>`'));
-  const vc = ctx.member?.voice?.channel;
-  if (!vc) return replyEmbed(ctx, base(COLORS.error).setTitle('Not in VC').setDescription('Join a voice channel first.'));
+  const text = args.join(' ').trim();
+  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,ttschannel <text>`'));
 
-  // Check if bot is already in another VC in this guild
-  const botMember = ctx.guild.members.me;
-  if (botMember?.voice?.channel && botMember.voice.channel.id !== vc.id) {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Bot Already in VC')
-      .setDescription(`The bot is currently in **${botMember.voice.channel.name}**. Use \`,stop\` to make it leave first.`));
+  const member = ctx.member || ctx.member;
+  const voiceChannel = member?.voice?.channel;
+  if (!voiceChannel) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Not in VC').setDescription('Join a voice channel first.'));
+
+  // Check ffmpeg
+  try { require('ffmpeg-static'); } catch {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ ffmpeg Missing').setDescription('Run: `npm install ffmpeg-static`'));
+  }
+  // Check opus
+  try { require('@discordjs/opus') || require('opusscript'); } catch {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Opus Missing').setDescription('Run: `npm install opusscript`'));
   }
 
-  // Lazy-load voice dependencies
-  let voice;
+  const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
+
+  // Check if bot is already in a different VC
+  const existing = getVoiceConnection(ctx.guild.id);
+  if (existing && existing.joinConfig.channelId !== voiceChannel.id) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Already in VC').setDescription('I\'m already in another voice channel. Use `,stop` first.'));
+  }
+
+  const lang = 'en';
+  const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
+  console.log(`[TTS] Fetching: ${ttsUrl}`);
+
+  let audioBuffer;
   try {
-    voice = require('@discordjs/voice');
-  } catch {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Dependency')
-      .setDescription('Install `@discordjs/voice` and `ffmpeg-static` to use this feature.\nRun: `npm install @discordjs/voice ffmpeg-static`'));
+    const res = await fetch(ttsUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    audioBuffer = Buffer.from(await res.arrayBuffer());
+    console.log(`[TTS] Audio fetched: ${audioBuffer.length} bytes`);
+  } catch (err) {
+    console.error('[TTS] Fetch error:', err);
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch TTS audio.'));
   }
 
-  // Check ffmpeg-static is available
+  const tmpFile = path.join(os.tmpdir(), `kaido_tts_${ctx.guild.id}_${Date.now()}.mp3`);
   try {
-    require('ffmpeg-static');
-  } catch {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing ffmpeg')
-      .setDescription('`ffmpeg-static` is required to play audio.\nRun: `npm install ffmpeg-static`'));
-  }
-
-  // Check opus encoder is available
-  const opusModules = ['@discordjs/opus', 'node-opus', 'opusscript'];
-  let hasOpus = false;
-  for (const mod of opusModules) {
-    try { require(mod); hasOpus = true; break; } catch {}
-  }
-  if (!hasOpus) {
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Missing Opus Encoder')
-      .setDescription('An Opus encoder is required to play audio.\nRun one of these:\n`npm install @discordjs/opus` (recommended)\n`npm install opusscript` (fallback, pure JS)'));
+    fs.writeFileSync(tmpFile, audioBuffer);
+    console.log(`[TTS] Temp file written: ${tmpFile}`);
+  } catch (err) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not write temp file.'));
   }
 
   try {
-    // Fetch TTS audio from Google
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${speaker}&client=tw-ob`;
-    console.log('[TTS] Fetching:', url.slice(0, 80) + '...');
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
-    if (!res.ok) throw new Error(`Google TTS HTTP ${res.status}`);
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('text/html')) throw new Error('Google TTS returned HTML (blocked)');
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (buffer.length < 1000) throw new Error(`TTS audio too small (${buffer.length} bytes) — likely blocked`);
-    console.log('[TTS] Audio fetched:', buffer.length, 'bytes');
-
-    // Clean up any existing TTS for this guild
-    cleanupTts(ctx.guild.id);
-
-    // Wait for Discord to process the disconnect before reconnecting
-    console.log('[TTS] Waiting 2s for cleanup to settle...');
-    await new Promise(r => setTimeout(r, 2000));
-
-    // Join voice channel
-    const connection = voice.joinVoiceChannel({
-      channelId: vc.id,
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
       guildId: ctx.guild.id,
       adapterCreator: ctx.guild.voiceAdapterCreator,
       selfDeaf: false,
       selfMute: false,
     });
 
-    // Debug: log state changes
-    connection.on('stateChange', (oldState, newState) => {
-      console.log(`[TTS] Connection state: ${oldState.status} -> ${newState.status}`);
-      if (newState.status === 'disconnected' && newState.reason) {
-        console.log('[TTS] Disconnect reason:', newState.reason);
-      }
-      if (newState.status === 'connecting' && oldState.status === 'connecting') {
-        console.log('[TTS] Connection retrying...');
-      }
-    });
-
-    connection.on('error', (err) => {
-      console.error('[TTS] Connection error:', err.message);
-    });
-
-    connection.on('debug', (msg) => {
-      console.log('[TTS] Debug:', msg);
-    });
-
-    // CRITICAL: Wait for connection to be ready before playing
-    try {
-      await voice.entersState(connection, voice.VoiceConnectionStatus.Ready, 60000);
-      console.log('[TTS] Voice connection ready');
-    } catch (e) {
-      connection.destroy();
-      console.error('[TTS] Connection failed to reach Ready:', e.message);
-      throw new Error('Voice connection failed to establish.\n\nCommon causes:\n1. Replit blocks Discord voice UDP (most likely)\n2. Bot lacks Connect/Speak permissions in the voice channel\n3. Discord voice region issue — try a different voice channel\n4. Missing GuildVoiceStates intent\n\nIf you are on Replit, Discord voice often does not work due to UDP restrictions. Consider using Railway, Fly.io, or a VPS.');
-    }
-
-    // Write buffer to temp file — ffmpeg needs a real file path
-    const tmpFile = path.join(os.tmpdir(), `kaido_tts_${ctx.guild.id}_${Date.now()}.mp3`);
-    fs.writeFileSync(tmpFile, buffer);
-    console.log('[TTS] Temp file written:', tmpFile);
-
-    // Create player
-    const player = voice.createAudioPlayer({
-      behaviors: { noSubscriber: voice.NoSubscriberBehavior.Play }
-    });
-
-    // Debug: log player state changes
-    player.on('stateChange', (oldState, newState) => {
-      console.log(`[TTS] Player state: ${oldState.status} -> ${newState.status}`);
-    });
-
-    // Create audio resource from file
-    const resource = voice.createAudioResource(tmpFile, {
-      inputType: voice.StreamType.Arbitrary,
-      inlineVolume: true,
-    });
-
+    const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Play } });
+    const resource = createAudioResource(tmpFile);
     player.play(resource);
     connection.subscribe(player);
+
     console.log('[TTS] Player started');
+    replyEmbed(ctx, base(COLORS.success).setTitle('🔊 Speaking').setDescription(`Saying: \`${text.slice(0, 100)}\``));
 
-    // Store for cleanup
-    const entry = { connection, player, tmpFile };
-    ttsConnections.set(ctx.guild.id, entry);
-
-    // Auto-disconnect after 5 minutes of inactivity
-    player.on(voice.AudioPlayerStatus.Idle, () => {
+    let disconnectTimer;
+    player.on(AudioPlayerStatus.Idle, () => {
       console.log('[TTS] Player idle — scheduling disconnect in 5 min');
-      entry.timeout = setTimeout(() => cleanupTts(ctx.guild.id), 5 * 60 * 1000);
+      disconnectTimer = setTimeout(() => {
+        connection.destroy();
+        try { fs.unlinkSync(tmpFile); } catch {}
+      }, 300000);
     });
 
-    player.on('error', (err) => {
+    player.on('error', err => {
       console.error('[TTS] Player error:', err.message);
-      cleanupTts(ctx.guild.id);
+      connection.destroy();
+      clearTimeout(disconnectTimer);
+      try { fs.unlinkSync(tmpFile); } catch {}
     });
 
-    return replyEmbed(ctx, base(COLORS.success).setTitle('Speaking').setDescription(`Speaking in **${vc.name}**...`));
+    connection.on('error', err => {
+      console.error('[TTS] Connection error:', err.message);
+      connection.destroy();
+      clearTimeout(disconnectTimer);
+      try { fs.unlinkSync(tmpFile); } catch {}
+    });
   } catch (err) {
     console.error('[TTS] Error:', err);
-    cleanupTts(ctx.guild.id);
-    return replyEmbed(ctx, base(COLORS.error).setTitle('Failed')
-      .setDescription(`Could not speak in voice channel.\n**Reason:** ${err.message || 'Unknown error'}`));
+    try { fs.unlinkSync(tmpFile); } catch {}
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription(`Could not speak in voice channel.\n**Reason:** ${err.message}`));
   }
 }
-
-// ══════════════════════════════════════════════════════════
 // 27. LEGO (Legofy image)
 // ══════════════════════════════════════════════════════════
 async function handleLego(ctx, args) {
@@ -1373,7 +1219,6 @@ async function handleLego(ctx, args) {
     return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription('Could not legofy image. Try a different URL or image format.'));
   }
 }
-
 // ══════════════════════════════════════════════════════════
 // 28. MAKEGIF (video to GIF)
 // ══════════════════════════════════════════════════════════
@@ -1384,10 +1229,8 @@ async function handleMakegif(ctx, args) {
     return replyEmbed(ctx, base(COLORS.error).setTitle('Invalid File').setDescription('That does not look like a video file. Supported: MP4, MOV, WEBM'));
   }
   return replyEmbed(ctx, base(COLORS.warning).setTitle('MakeGIF')
-    .setDescription('Video-to-GIF conversion requires ffmpeg processing.\n\n**To enable:**\n1. Install: `npm install ffmpeg-static fluent-ffmpeg`\n2. Or use a cloud converter API\n\n**Usage:** `,makegif <video-url>` or reply to a video with `,makegif`'));
+    .setDescription('Video-to-GIF conversion requires ffmpeg processing.\n\n**To enable:**\n`npm install ffmpeg-static fluent-ffmpeg`\n\n**Usage:** `,makegif <video-url>` or reply to a video with `,makegif`'));
 }
-
-// ══════════════════════════════════════════════════════════
 // 29. TRANSPARENT (remove background)
 // ══════════════════════════════════════════════════════════
 async function handleTransparent(ctx, args) {
@@ -1422,8 +1265,6 @@ async function handleTransparent(ctx, args) {
     return replyEmbed(ctx, base(COLORS.error).setTitle('Failed').setDescription(`Could not remove background.\n**Reason:** ${err.message || 'Unknown error'}\n\nMake sure your Remove.bg API key is valid and the image URL is accessible.`));
   }
 }
-
-// ══════════════════════════════════════════════════════════
 // 30. WOLFRAM
 // ══════════════════════════════════════════════════════════
 async function handleWolfram(ctx, args) {
@@ -1541,6 +1382,427 @@ async function handleJuulStats(ctx, args) { return handleJuul(ctx, ['stats', ...
 async function handleJuulFlavor(ctx, args) { return handleJuul(ctx, ['flavor', ...args]); }
 async function handleJuulSteal(ctx, args) { return handleJuul(ctx, ['steal', ...args]); }
 
+
+// ══════════════════════════════════════════════════════════
+// 40. EMBEDCODE (copy embed JSON)
+// ══════════════════════════════════════════════════════════
+async function handleEmbedcode(ctx, args) {
+  const input = args[0] || '';
+  const linkMatch = input.match(/discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/);
+  let targetMsg = null;
+  try {
+    if (linkMatch) {
+      const [, , channelId, messageId] = linkMatch;
+      const ch = await ctx.client.channels.fetch(channelId).catch(() => null);
+      if (ch) targetMsg = await ch.messages.fetch(messageId).catch(() => null);
+    }
+  } catch {}
+  if (!targetMsg) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Message Not Found').setDescription('Provide a valid message link.\nUsage: `,embedcode <message-link>`'));
+  if (!targetMsg.embeds.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Embed').setDescription('That message has no embeds.'));
+  const embed = targetMsg.embeds[0];
+  const code = JSON.stringify(embed.toJSON ? embed.toJSON() : embed.data, null, 2);
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('📋 Embed Code')
+    .setDescription(`\`\`\`json\n${code.slice(0, 3900)}\n\`\`\``)
+    .setFooter({ text: 'Copy this JSON to recreate the embed' }));
+}
+
+// ══════════════════════════════════════════════════════════
+// 41. RANDOMHEX
+// ══════════════════════════════════════════════════════════
+async function handleRandomhex(ctx, args) {
+  const hex = Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0').toUpperCase();
+  const embed = base(COLORS.primary).setTitle('🎨 Random Hex')
+    .setDescription(`\`#${hex}\``)
+    .setColor(parseInt(hex, 16));
+  return replyEmbed(ctx, embed);
+}
+
+// ══════════════════════════════════════════════════════════
+// 42. CHARINFO
+// ══════════════════════════════════════════════════════════
+async function handleCharinfo(ctx, args) {
+  const text = args.join(' ');
+  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Characters').setDescription('Usage: `,charinfo <characters>`'));
+  const chars = [...text].slice(0, 20);
+  const fields = chars.map(c => {
+    const cp = c.codePointAt(0);
+    const hex = cp.toString(16).toUpperCase().padStart(4, '0');
+    return { name: `${c}`, value: `U+${hex} | Dec: ${cp}`, inline: true };
+  });
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('🔤 Character Info').addFields(fields));
+}
+
+// ══════════════════════════════════════════════════════════
+// 43. COLOR
+// ══════════════════════════════════════════════════════════
+async function handleColor(ctx, args) {
+  let hex = args[0]?.replace('#', '') || '';
+  if (!/^[0-9A-Fa-f]{6}$/.test(hex)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid Hex').setDescription('Usage: `,color <hex>`\nExample: `,color #5865F2`'));
+  hex = hex.toUpperCase();
+  const embed = base(COLORS.primary).setTitle(`🎨 Color #${hex}`)
+    .setDescription(`Hex: \`#${hex}\`\nRGB: \`${parseInt(hex.slice(0,2),16)}, ${parseInt(hex.slice(2,4),16)}, ${parseInt(hex.slice(4,6),16)}\``)
+    .setColor(parseInt(hex, 16));
+  return replyEmbed(ctx, embed);
+}
+
+// ══════════════════════════════════════════════════════════
+// 44. ADDEMOTE
+// ══════════════════════════════════════════════════════════
+async function handleAddemote(ctx, args) {
+  const isInteraction = !!ctx.deferReply;
+  const member = isInteraction ? ctx.member : ctx.member;
+  if (!member.permissions.has(PermissionFlagsBits.ManageGuildExpressions) && !member.permissions.has(PermissionFlagsBits.CreateGuildExpressions)) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Permission Denied').setDescription('You need **Manage Expressions** permission.'));
+  }
+  const input = args[0] || '';
+  const match = input.match(/<(a)?:(\w+):(\d+)>/);
+  if (!match) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid Emoji').setDescription('Provide a custom emoji.\nUsage: `,addemote <emoji>`'));
+  const animated = !!match[1], name = match[2], id = match[3];
+  const ext = animated ? 'gif' : 'png';
+  const url = `https://cdn.discordapp.com/emojis/${id}.${ext}?size=256`;
+  try {
+    const emoji = await ctx.guild.emojis.create({ attachment: url, name });
+    return replyEmbed(ctx, base(COLORS.success).setTitle('✅ Emoji Added').setDescription(`Added ${emoji} as \`:${emoji.name}:\``));
+  } catch (err) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription(`Could not add emoji: ${err.message}`));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 45. RPS
+// ══════════════════════════════════════════════════════════
+async function handleRps(ctx, args) {
+  const choice = args[0]?.toLowerCase();
+  const valid = ['rock', 'paper', 'scissors'];
+  if (!valid.includes(choice)) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid Choice').setDescription('Usage: `,rps <rock|paper|scissors>`'));
+  const botChoice = valid[Math.floor(Math.random() * 3)];
+  const emojis = { rock: '🪨', paper: '📄', scissors: '✂️' };
+  let result;
+  if (choice === botChoice) result = "It's a **draw**!";
+  else if ((choice === 'rock' && botChoice === 'scissors') || (choice === 'paper' && botChoice === 'rock') || (choice === 'scissors' && botChoice === 'paper')) result = 'You **win**! 🎉';
+  else result = 'You **lose**! 😢';
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('🎮 Rock Paper Scissors')
+    .setDescription(`You: ${emojis[choice]} **${choice}**\nBot: ${emojis[botChoice]} **${botChoice}**\n\n${result}`));
+}
+
+// ══════════════════════════════════════════════════════════
+// 46. CHOOSE
+// ══════════════════════════════════════════════════════════
+async function handleChoose(ctx, args) {
+  const input = args.join(' ');
+  if (!input.includes(',')) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid Format').setDescription('Usage: `,choose <option1>, <option2>, <option3>`'));
+  const choices = input.split(',').map(c => c.trim()).filter(c => c);
+  if (choices.length < 2) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Not Enough Choices').setDescription('Provide at least 2 choices separated by commas.'));
+  const choice = rand(choices);
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('🎯 I Choose...').setDescription(`**${choice}**`));
+}
+
+// ══════════════════════════════════════════════════════════
+// 47. JUMBO
+// ══════════════════════════════════════════════════════════
+async function handleJumbo(ctx, args) {
+  const input = args[0] || '';
+  const match = input.match(/<(a)?:(\w+):(\d+)>/);
+  if (match) {
+    const animated = !!match[1], id = match[3];
+    const ext = animated ? 'gif' : 'png';
+    const url = `https://cdn.discordapp.com/emojis/${id}.${ext}?size=256`;
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('🔍 Jumbo').setImage(url));
+  }
+  if (input.length > 0) {
+    const codePoints = [...input].map(c => c.codePointAt(0).toString(16)).join('-');
+    const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/${codePoints}.png`;
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('🔍 Jumbo').setImage(url));
+  }
+  return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid Emoji').setDescription('Usage: `,jumbo <emoji>`'));
+}
+
+// ══════════════════════════════════════════════════════════
+// 48. WOULDRATHER
+// ══════════════════════════════════════════════════════════
+const WYR_QUESTIONS = [
+  "Would you rather be able to fly or be invisible?",
+  "Would you rather have unlimited money or unlimited time?",
+  "Would you rather be famous or be rich?",
+  "Would you rather live in the past or the future?",
+  "Would you rather be able to read minds or see the future?",
+  "Would you rather never use social media again or never watch TV again?",
+  "Would you rather have a pet dragon or a pet unicorn?",
+  "Would you rather be the smartest person in the world or the strongest?",
+  "Would you rather eat only pizza forever or only burgers forever?",
+  "Would you rather have no internet for a month or no phone for a month?"
+];
+async function handleWouldyourather(ctx, args) {
+  const q = rand(WYR_QUESTIONS);
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('🤔 Would You Rather?').setDescription(q));
+}
+
+// ══════════════════════════════════════════════════════════
+// 49. INVITES
+// ══════════════════════════════════════════════════════════
+async function handleInvites(ctx, args) {
+  const isInteraction = !!ctx.deferReply;
+  const member = isInteraction ? ctx.member : ctx.member;
+  if (!member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Permission Denied').setDescription('You need **Manage Server** permission.'));
+  }
+  try {
+    const invites = await ctx.guild.invites.fetch();
+    if (!invites.size) return replyEmbed(ctx, base(COLORS.warning).setTitle('📨 Invites').setDescription('No active invites found.'));
+    const list = invites.map(inv => `**${inv.code}** — ${inv.uses} uses | ${inv.inviter?.tag || 'Unknown'}`).slice(0, 20).join('\n');
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('📨 Active Invites').setDescription(list));
+  } catch (err) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch invites.'));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 50. MAKEMP3
+// ══════════════════════════════════════════════════════════
+async function handleMakemp3(ctx, args) {
+  const url = await resolveImageUrl(ctx, args);
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,makemp3 <video-url>` or reply to a video.'));
+  return replyEmbed(ctx, base(COLORS.warning).setTitle('MakeMP3')
+    .setDescription('Audio extraction requires ffmpeg.\n\n**To enable:**\n`npm install ffmpeg-static fluent-ffmpeg`\n\n**Usage:** `,makemp3 <video-url>`'));
+}
+
+// ══════════════════════════════════════════════════════════
+// 51. WIKIHOW
+// ══════════════════════════════════════════════════════════
+async function handleWikihow(ctx, args) {
+  const query = args.join(' ').trim();
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,wikihow <query>`'));
+  try {
+    const data = await jsonFetch(`https://www.wikihow.com/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=5`);
+    const results = data.query?.search;
+    if (!results?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No WikiHow articles found.'));
+    const list = results.map((r, i) => `**${i+1}.** [${r.title}](https://www.wikihow.com/${r.title.replace(/ /g, '-')})`).join('\n');
+    return replyEmbed(ctx, base(COLORS.primary).setTitle(`📖 WikiHow: ${query}`).setDescription(list));
+  } catch {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not search WikiHow.'));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 52. GNAMES (guild name history)
+// ══════════════════════════════════════════════════════════
+async function handleGnames(ctx, args) {
+  const guildId = args[0] || ctx.guild.id;
+  const db = getGuildDb(guildId);
+  const history = db.get('nameHistory', []);
+  if (!history.length) return replyEmbed(ctx, base(COLORS.warning).setTitle('📛 Guild Name History').setDescription('No name changes recorded.'));
+  const list = history.slice(-20).map((h, i) => `${i+1}. **${h.name}** — <t:${Math.floor(h.time/1000)}:R>`).join('\n');
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('📛 Guild Name History').setDescription(list));
+}
+
+// ══════════════════════════════════════════════════════════
+// 53. CLEARNAMES
+// ══════════════════════════════════════════════════════════
+async function handleClearnames(ctx, args) {
+  const udb = getUserDb(ctx.guild.id, ctx.author.id);
+  udb.set('nameHistory', []);
+  return replyEmbed(ctx, base(COLORS.success).setTitle('✅ Cleared').setDescription('Your name history has been reset.'));
+}
+
+// ══════════════════════════════════════════════════════════
+// 54. CLEARGNAMES
+// ══════════════════════════════════════════════════════════
+async function handleCleargnames(ctx, args) {
+  const member = ctx.member || ctx.member;
+  if (!member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Permission Denied').setDescription('You need **Manage Server** permission.'));
+  }
+  const db = getGuildDb(ctx.guild.id);
+  db.set('nameHistory', []);
+  return replyEmbed(ctx, base(COLORS.success).setTitle('✅ Cleared').setDescription('Guild name history has been reset.'));
+}
+
+// ══════════════════════════════════════════════════════════
+// 55. BRAINLY
+// ══════════════════════════════════════════════════════════
+async function handleBrainly(ctx, args) {
+  const query = args.join(' ').trim();
+  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,brainly <question>`'));
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('🧠 Brainly Search')
+    .setDescription(`[Search Brainly for "${query}"](https://brainly.com/app/ask?q=${encodeURIComponent(query)})`));
+}
+
+// ══════════════════════════════════════════════════════════
+// 56. NAMES (user name history)
+// ══════════════════════════════════════════════════════════
+async function handleNames(ctx, args) {
+  const isInteraction = !!ctx.deferReply;
+  const target = isInteraction ? (ctx.options?.getUser?.('user') || ctx.user) : (ctx.mentions?.users?.first() || ctx.author);
+  const udb = getUserDb(ctx.guild.id, target.id);
+  const history = udb.get('nameHistory', []);
+  if (!history.length) return replyEmbed(ctx, base(COLORS.warning).setTitle('📛 Name History').setDescription(`${target.username} has no recorded name changes.`));
+  const list = history.slice(-20).map((h, i) => `${i+1}. **${h.name}** — <t:${Math.floor(h.time/1000)}:R>`).join('\n');
+  return replyEmbed(ctx, base(COLORS.primary).setTitle(`📛 Name History — ${target.username}`).setDescription(list));
+}
+
+// ══════════════════════════════════════════════════════════
+// 57. SHAZAM
+// ══════════════════════════════════════════════════════════
+async function handleShazam(ctx, args) {
+  const url = await resolveImageUrl(ctx, args);
+  if (!url) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid URL').setDescription('Usage: `,shazam <audio-url>` or reply to an audio/video.'));
+  const key = API_KEYS.AUDD_API_KEY;
+  if (!key) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing')
+      .setDescription('Add `AUDD_API_KEY` to `config/apikeys.js`.\nGet one at https://audd.io/'));
+  }
+  try {
+    const form = new FormData();
+    form.append('url', url);
+    form.append('api_token', key);
+    form.append('return', 'apple_music,spotify');
+    const res = await fetch('https://api.audd.io/', { method: 'POST', body: form, signal: AbortSignal.timeout(20000) });
+    const data = await res.json();
+    if (data.status === 'error' || !data.result) throw new Error(data.error?.error_message || 'No match found');
+    const r = data.result;
+    const embed = base(COLORS.primary).setTitle(`🎵 ${r.title} — ${r.artist}`)
+      .addFields(
+        { name: 'Album', value: r.album || 'N/A', inline: true },
+        { name: 'Release', value: r.release_date || 'N/A', inline: true }
+      );
+    if (r.apple_music?.url) embed.addFields({ name: 'Apple Music', value: `[Listen](${r.apple_music.url})`, inline: true });
+    if (r.spotify?.external_urls?.spotify) embed.addFields({ name: 'Spotify', value: `[Listen](${r.spotify.external_urls.spotify})`, inline: true });
+    return replyEmbed(ctx, embed);
+  } catch (err) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription(`Could not identify song: ${err.message}`));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 58. TOPCOMMANDS
+// ══════════════════════════════════════════════════════════
+const commandUsage = new Map();
+async function handleTopcommands(ctx, args) {
+  if (!commandUsage.size) return replyEmbed(ctx, base(COLORS.warning).setTitle('📊 Top Commands').setDescription('No command usage recorded yet.'));
+  const sorted = [...commandUsage.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const list = sorted.map(([cmd, count], i) => `${i+1}. **${cmd}** — ${count} uses`).join('\n');
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('📊 Top Commands').setDescription(list));
+}
+
+// ══════════════════════════════════════════════════════════
+// 59. AFK MENTIONS
+// ══════════════════════════════════════════════════════════
+async function handleAfkmentions(ctx, args) {
+  const udb = getUserDb(ctx.guild.id, ctx.author.id);
+  const mentions = udb.get('afkMentions', []);
+  if (!mentions.length) return replyEmbed(ctx, base(COLORS.warning).setTitle('📬 AFK Mentions').setDescription('No mentions received while you were AFK.'));
+  const list = mentions.slice(-10).map((m, i) => `${i+1}. <@${m.userId}> in <#${m.channelId}>: "${m.content.slice(0, 50)}..." — <t:${Math.floor(m.time/1000)}:R>`).join('\n');
+  udb.set('afkMentions', []);
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('📬 AFK Mentions').setDescription(list).setFooter({ text: 'Mentions cleared' }));
+}
+
+// ══════════════════════════════════════════════════════════
+// 60. POLL
+// ══════════════════════════════════════════════════════════
+function parseDuration(str) {
+  const match = str.match(/^(\d+)([smhd])$/i);
+  if (!match) return null;
+  const num = parseInt(match[1]);
+  const unit = match[2].toLowerCase();
+  const mult = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+  return num * mult[unit];
+}
+
+async function handlePoll(ctx, args) {
+  const timeStr = args[0];
+  const question = args.slice(1).join(' ');
+  if (!timeStr || !question) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Arguments').setDescription('Usage: `,poll <time> <question>`\nExample: `,poll 5m Should we play games?`'));
+  const ms = parseDuration(timeStr);
+  if (!ms || ms > 3600000) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Invalid Time').setDescription('Max poll time is 1 hour. Use format like `5m`, `10m`, `30m`.'));
+  const embed = base(COLORS.primary).setTitle('📊 Poll').setDescription(`**${question}**\n\nReact with 👍 or 👎\nEnds <t:${Math.floor((Date.now()+ms)/1000)}:R>`);
+  const msg = await ctx.channel.send({ embeds: [embed] });
+  await msg.react('👍');
+  await msg.react('👎');
+  setTimeout(async () => {
+    const fetched = await msg.fetch().catch(() => null);
+    if (!fetched) return;
+    const up = fetched.reactions.cache.get('👍')?.count || 0;
+    const down = fetched.reactions.cache.get('👎')?.count || 0;
+    const result = up > down ? '👍 Yes wins!' : down > up ? '👎 No wins!' : "🤝 It's a tie!";
+    const endEmbed = base(COLORS.primary).setTitle('📊 Poll Ended').setDescription(`**${question}**\n\n👍 ${up-1} | 👎 ${down-1}\n\n**${result}**`);
+    await msg.edit({ embeds: [endEmbed] });
+  }, ms);
+}
+
+// ══════════════════════════════════════════════════════════
+// 61. CHATGPT (Groq — free tier)
+// ══════════════════════════════════════════════════════════
+async function handleChatgpt(ctx, args) {
+  const isInteraction = !!ctx.deferReply;
+  const member = isInteraction ? ctx.member : ctx.member;
+  const hasBoosterRole = member.roles.cache.some(r => r.name.toLowerCase() === 'bleed booster');
+  const isBooster = member.premiumSince !== null;
+  if (!hasBoosterRole && !isBooster && !member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Permission Denied').setDescription('This command requires the **Bleed Booster** role or Server Booster status.'));
+  }
+  const question = args.join(' ').trim();
+  if (!question) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Question').setDescription('Usage: `,chatgpt <question>`'));
+  const key = API_KEYS.GROQ_API_KEY || API_KEYS.OPENAI_API_KEY;
+  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `GROQ_API_KEY` to `config/apikeys.js`.\nGet one free at https://console.groq.com/keys'));
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: question }], max_tokens: 1024 }),
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || data.error);
+    const answer = data.choices?.[0]?.message?.content || 'No response.';
+    return replyEmbed(ctx, base(COLORS.primary).setTitle('🤖 ChatGPT').setDescription(answer.slice(0, 4000)));
+  } catch (err) {
+    return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription(`Groq error: ${err.message}`));
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// 62. UWU
+// ══════════════════════════════════════════════════════════
+async function handleUwu(ctx, args) {
+  const text = args.join(' ');
+  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,uwu <text>`'));
+  const uwu = text
+    .replace(/[rl]/g, 'w').replace(/[RL]/g, 'W')
+    .replace(/n([aeiou])/g, 'ny$1').replace(/N([aeiouAEIOU])/g, 'Ny$1')
+    .replace(/ove/g, 'uv').replace(/OVE/g, 'UV')
+    + ' uwu';
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('🐱 UwU').setDescription(uwu.slice(0, 2000)));
+}
+
+// ══════════════════════════════════════════════════════════
+// 63. FREAKY
+// ══════════════════════════════════════════════════════════
+async function handleFreaky(ctx, args) {
+  const text = args.join(' ');
+  if (!text) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Text').setDescription('Usage: `,freaky <text>`'));
+  const vowels = 'aeiouAEIOU';
+  const freaky = [...text].map(c => vowels.includes(c) ? c + c + c : c).join('');
+  return replyEmbed(ctx, base(COLORS.primary).setTitle('👅 Freaky').setDescription(freaky.slice(0, 2000)));
+}
+
+// ══════════════════════════════════════════════════════════
+// 64. QUICKPOLL
+// ══════════════════════════════════════════════════════════
+async function handleQuickpoll(ctx, args) {
+  const msg = ctx.message || ctx;
+  let targetMsg = null;
+  if (msg.reference?.messageId) {
+    try { targetMsg = await msg.channel.messages.fetch(msg.reference.messageId); } catch {}
+  }
+  if (!targetMsg && args[0]?.match(/^\d+$/)) {
+    try { targetMsg = await msg.channel.messages.fetch(args[0]); } catch {}
+  }
+  if (!targetMsg) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Message').setDescription('Reply to a message or provide a message ID.\nUsage: `,quickpoll <message-id>`'));
+  await targetMsg.react('⬆️');
+  await targetMsg.react('⬇️');
+  return replyEmbed(ctx, base(COLORS.success).setTitle('✅ Quick Poll').setDescription('Added up/down reactions.'));
+}
+
 // ══════════════════════════════════════════════════════════
 // EXPORTS
 // ══════════════════════════════════════════════════════════
@@ -1550,7 +1812,6 @@ module.exports = {
   blacktea: handleBlacktea,
   quote: handleQuote,
   tictactoe: handleTicTacToe,
-  google: handleGoogle,
   giphy: handleGiphy,
   steal: handleSteal,
   duckduckgoimage: handleDuckDuckGoImage,
@@ -1582,4 +1843,29 @@ module.exports = {
   'juul stats': handleJuulStats,
   'juul flavor': handleJuulFlavor,
   'juul steal': handleJuulSteal,
+  embedcode: handleEmbedcode,
+  randomhex: handleRandomhex,
+  charinfo: handleCharinfo,
+  color: handleColor,
+  addemote: handleAddemote,
+  rps: handleRps,
+  choose: handleChoose,
+  jumbo: handleJumbo,
+  wouldyourather: handleWouldyourather,
+  invites: handleInvites,
+  makemp3: handleMakemp3,
+  wikihow: handleWikihow,
+  gnames: handleGnames,
+  clearnames: handleClearnames,
+  cleargnames: handleCleargnames,
+  brainly: handleBrainly,
+  names: handleNames,
+  shazam: handleShazam,
+  topcommands: handleTopcommands,
+  afkmentions: handleAfkmentions,
+  poll: handlePoll,
+  chatgpt: handleChatgpt,
+  uwu: handleUwu,
+  freaky: handleFreaky,
+  quickpoll: handleQuickpoll,
 };

@@ -3,10 +3,9 @@
 // No .env file needed.
 
 const API_KEYS = {
-  GOOGLE_API_KEY: '',
+  GOOGLE_API_KEY: 'AIzaSyCy_Kp9aBqhTH6aOgB8T6DlUA2vObtwQpg',
   GOOGLE_CX: '808af46b4e41c4892',
   GIPHY_API_KEY: 'vIjzyQyQHLYQc5nP05VxzjfMHdmtAf28',
-  TENOR_API_KEY: '',
   PERSPECTIVE_API_KEY: '',
   RAWG_API_KEY: '',
   OMDB_API_KEY: 'dab0c879',

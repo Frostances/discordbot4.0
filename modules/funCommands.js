@@ -678,21 +678,8 @@ async function handleGiphy(ctx, args) {
   } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch from Giphy.')); }
 }
 
-// ══════════════════════════════════════════════════════════
-// 8. TENOR
-// ══════════════════════════════════════════════════════════
-async function handleTenor(ctx, args) {
-  const query = args.join(' ').trim();
-  if (!query) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Missing Query').setDescription('Usage: `,tenor <query>`'));
-  const key = API_KEYS.TENOR_API_KEY;
-  if (!key) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ API Key Missing').setDescription('Add `TENOR_API_KEY` to `config/apikeys.js`.\nGet one at https://tenor.google.com/'));
-  try {
-    const data = await jsonFetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${key}&client_key=kaido_bot&limit=25`);
-    if (!data.results?.length) return replyEmbed(ctx, base(COLORS.error).setTitle('❌ No Results').setDescription('No GIFs found.'));
-    const gif = rand(data.results);
-    return replyEmbed(ctx, base(COLORS.primary).setTitle(`🎞️ Tenor: ${query}`).setImage(gif.media_formats.gif.url).setFooter({ text: 'Powered by Tenor' }));
-  } catch { return replyEmbed(ctx, base(COLORS.error).setTitle('❌ Failed').setDescription('Could not fetch from Tenor.')); }
-}
+
+// 8. TENOR (CANCELLED / REMOVED dont count it )
 
 // ══════════════════════════════════════════════════════════
 // 9. STEAL (most recent emote)
